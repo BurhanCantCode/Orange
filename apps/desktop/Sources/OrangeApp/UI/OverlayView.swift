@@ -26,6 +26,11 @@ struct OverlayView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+            } else if !appState.partialTranscript.isEmpty {
+                Text("Listening: \(appState.partialTranscript)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
 
             if let plan = appState.actionPlan {
@@ -46,6 +51,18 @@ struct OverlayView: View {
                         Text("\(prompt.title): \(prompt.message)")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                    }
+                }
+            }
+
+            if !appState.plannerEvents.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Timeline")
+                        .font(.caption.weight(.semibold))
+                    ForEach(appState.plannerEvents.suffix(3)) { event in
+                        Text("• \(event.message)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }

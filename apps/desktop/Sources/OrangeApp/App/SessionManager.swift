@@ -25,8 +25,16 @@ final class SessionManager {
     }
 
     func beginRecording(state: AppState) {
+        sttService.setPartialHandler { partial in
+            Task { @MainActor in
+                state.partialTranscript = partial
+            }
+        }
         state.state = .listening
         state.statusText = "Listening..."
+        state.partialTranscript = ""
+        state.transcript = ""
+        state.plannerEvents = []
         sttService.start()
     }
 
@@ -34,9 +42,28 @@ final class SessionManager {
         state.state = .transcribing
         state.statusText = "Transcribing..."
 
+        let eventStreamTask = Task {
+            do {
+                for try await event in plannerClient.streamEvents(sessionId: state.sessionId) {
+                    await MainActor.run {
+                        state.plannerEvents.append(event)
+                        state.statusText = event.message
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    if state.state == .planning {
+                        state.statusText = "Planning..."
+                    }
+                }
+            }
+        }
+        defer { eventStreamTask.cancel() }
+
         do {
             let transcriptResult = try await sttService.stop()
             state.transcript = transcriptResult.fullText
+            state.partialTranscript = transcriptResult.fullText
 
             state.state = .planning
             state.statusText = "Planning..."
@@ -86,16 +113,40 @@ final class SessionManager {
     private func executePlan(_ plan: ActionPlan, state: AppState) async {
         state.state = .executing
         state.statusText = "Executing..."
+        let beforeContext = await contextProvider.capture()
 
         let result = await executionEngine.execute(plan: plan)
         state.executionResult = result
+        state.state = .verifying
+        state.statusText = "Verifying..."
 
-        if result.status == .success {
+        let afterContext = await contextProvider.capture()
+        let verifyResult = try? await plannerClient.verify(
+            sessionId: state.sessionId,
+            plan: plan,
+            executionStatus: result.status,
+            reason: result.reason,
+            beforeContext: contextDigest(from: beforeContext),
+            afterContext: contextDigest(from: afterContext)
+        )
+
+        if result.status == .success, verifyResult?.status != "failure" {
             state.state = .done
             state.statusText = "Done"
+        } else if let verifyReason = verifyResult?.reason, verifyResult?.status == "failure" {
+            state.state = .failed
+            state.statusText = "Verification failed: \(verifyReason)"
         } else {
             state.state = .failed
             state.statusText = "Execution failed"
         }
+    }
+
+    private func contextDigest(from context: ScreenContext) -> String {
+        let appName = context.app.name ?? "Unknown"
+        let window = context.app.windowTitle ?? "Unknown"
+        let url = context.app.url ?? "n/a"
+        let ax = (context.axTreeSummary ?? "").prefix(1200)
+        return "app=\(appName), window=\(window), url=\(url), ax=\(ax)"
     }
 }

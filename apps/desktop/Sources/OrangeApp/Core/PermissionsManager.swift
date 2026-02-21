@@ -1,15 +1,17 @@
 import Foundation
+import AVFoundation
+import ApplicationServices
 
 final class PermissionsManager {
     func checkAccessibility() -> Bool {
-        true
+        AXIsProcessTrusted()
     }
 
     func checkMicrophone() -> Bool {
-        true
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
     func checkScreenRecording() -> Bool {
-        true
+        CGPreflightScreenCaptureAccess()
     }
 }
