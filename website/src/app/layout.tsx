@@ -9,6 +9,12 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], weight: ['400', '500', 
 export const metadata: Metadata = {
   title: "Orange // Execution",
   description: "Silicon Valley grade executed Voice-to-Action for macOS.",
+  openGraph: {
+    images: ["/orange_og_image.png"],
+  },
+  icons: {
+    icon: "/orange_favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
