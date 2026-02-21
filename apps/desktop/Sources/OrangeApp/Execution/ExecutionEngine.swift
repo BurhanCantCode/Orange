@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Carbon
 import Foundation
 
@@ -46,8 +47,12 @@ final class ActionExecutor: ExecutionEngine {
             try runAppleScript(action.text ?? action.target ?? "")
         case .wait:
             Thread.sleep(forTimeInterval: max(0.05, Double(action.timeoutMs) / 1000.0))
-        case .click, .scroll, .selectMenuItem:
-            throw ActionExecutionError.unsupportedAction(action.kind.rawValue)
+        case .click:
+            try clickTarget(action.target)
+        case .scroll:
+            try scrollTarget(action.target)
+        case .selectMenuItem:
+            try selectMenuItem(action.target)
         }
     }
 
@@ -155,6 +160,107 @@ final class ActionExecutor: ExecutionEngine {
         }
     }
 
+    private func clickTarget(_ target: String?) throws {
+        guard AXIsProcessTrusted() else {
+            throw ActionExecutionError.permissions("Accessibility permission is required for click actions")
+        }
+        guard let target, !target.isEmpty else {
+            throw ActionExecutionError.invalidActionPayload("Missing target for click action")
+        }
+
+        let systemWide = AXUIElementCreateSystemWide()
+        guard let focusedAppAny = copyAttribute(systemWide, attribute: kAXFocusedApplicationAttribute as CFString) else {
+            throw ActionExecutionError.elementNotFound("Focused app unavailable")
+        }
+        let focusedApp = focusedAppAny as! AXUIElement
+
+        let rootElement: AXUIElement
+        if let windowAny = copyAttribute(focusedApp, attribute: kAXFocusedWindowAttribute as CFString) {
+            rootElement = windowAny as! AXUIElement
+        } else {
+            rootElement = focusedApp
+        }
+
+        guard let element = findElement(containing: target, in: rootElement, maxDepth: 8, maxNodes: 500) else {
+            throw ActionExecutionError.elementNotFound("Could not find element matching target '\(target)'")
+        }
+
+        let pressResult = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        if pressResult != .success {
+            throw ActionExecutionError.elementInteractionFailed("Press action failed with AXError \(pressResult.rawValue)")
+        }
+    }
+
+    private func scrollTarget(_ target: String?) throws {
+        let normalized = (target ?? "down").lowercased()
+        let isUp = normalized.contains("up")
+        let isLeft = normalized.contains("left")
+        let isRight = normalized.contains("right")
+        let magnitude = extractMagnitude(from: normalized, defaultValue: 8)
+
+        guard let source = CGEventSource(stateID: .hidSystemState) else {
+            throw ActionExecutionError.systemEventCreationFailed
+        }
+
+        let vertical: Int32
+        if isUp {
+            vertical = Int32(magnitude)
+        } else {
+            vertical = -Int32(magnitude)
+        }
+
+        let horizontal: Int32
+        if isLeft {
+            horizontal = Int32(magnitude)
+        } else if isRight {
+            horizontal = -Int32(magnitude)
+        } else {
+            horizontal = 0
+        }
+
+        guard let event = CGEvent(
+            scrollWheelEvent2Source: source,
+            units: .line,
+            wheelCount: 2,
+            wheel1: vertical,
+            wheel2: horizontal,
+            wheel3: 0
+        ) else {
+            throw ActionExecutionError.systemEventCreationFailed
+        }
+        event.post(tap: .cghidEventTap)
+    }
+
+    private func selectMenuItem(_ target: String?) throws {
+        guard let target, !target.isEmpty else {
+            throw ActionExecutionError.invalidActionPayload("Missing target for select_menu_item action")
+        }
+        guard let appName = NSWorkspace.shared.frontmostApplication?.localizedName, !appName.isEmpty else {
+            throw ActionExecutionError.invalidActionPayload("Unable to detect frontmost app for menu selection")
+        }
+
+        let components = splitMenuPath(target)
+        guard components.count >= 2 else {
+            throw ActionExecutionError.invalidActionPayload(
+                "Menu path must be like 'File > New Window' (received: \(target))"
+            )
+        }
+
+        let menu = escapeAppleScriptText(components[0])
+        let item = escapeAppleScriptText(components[1])
+        let app = escapeAppleScriptText(appName)
+
+        try runAppleScript(
+            """
+            tell application "System Events"
+                tell process "\(app)"
+                    click menu item "\(item)" of menu "\(menu)" of menu bar 1
+                end tell
+            end tell
+            """
+        )
+    }
+
     private func keyCode(for key: String) -> CGKeyCode? {
         let map: [String: CGKeyCode] = [
             "a": CGKeyCode(kVK_ANSI_A),
@@ -213,6 +319,75 @@ final class ActionExecutor: ExecutionEngine {
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: " ")
     }
+
+    private func splitMenuPath(_ target: String) -> [String] {
+        let delimiters = [" > ", ">", "/", "->"]
+        var working = target
+        for delimiter in delimiters {
+            working = working.replacingOccurrences(of: delimiter, with: "|")
+        }
+        return working
+            .split(separator: "|")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func extractMagnitude(from text: String, defaultValue: Int) -> Int {
+        let digits = text.filter(\.isNumber)
+        if let value = Int(digits), value > 0 {
+            return min(value, 50)
+        }
+        return defaultValue
+    }
+
+    private func copyAttribute(_ element: AXUIElement, attribute: CFString) -> AnyObject? {
+        var value: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(element, attribute, &value)
+        guard result == .success, let value else { return nil }
+        return value
+    }
+
+    private func findElement(
+        containing target: String,
+        in root: AXUIElement,
+        maxDepth: Int,
+        maxNodes: Int
+    ) -> AXUIElement? {
+        let needle = target.lowercased()
+        var queue: [(AXUIElement, Int)] = [(root, 0)]
+        var visited = 0
+
+        while !queue.isEmpty, visited < maxNodes {
+            let (element, depth) = queue.removeFirst()
+            visited += 1
+
+            if elementMatches(element, needle: needle) {
+                return element
+            }
+
+            guard depth < maxDepth else { continue }
+            if let children = copyAttribute(element, attribute: kAXChildrenAttribute as CFString) as? [AnyObject] {
+                queue.append(contentsOf: children.map { ($0 as! AXUIElement, depth + 1) })
+            }
+        }
+        return nil
+    }
+
+    private func elementMatches(_ element: AXUIElement, needle: String) -> Bool {
+        let fields: [CFString] = [
+            kAXTitleAttribute as CFString,
+            kAXDescriptionAttribute as CFString,
+            kAXValueAttribute as CFString,
+            kAXRoleAttribute as CFString,
+            kAXRoleDescriptionAttribute as CFString,
+        ]
+        for field in fields {
+            if let value = copyAttribute(element, attribute: field), String(describing: value).lowercased().contains(needle) {
+                return true
+            }
+        }
+        return false
+    }
 }
 
 private enum ActionExecutionError: LocalizedError {
@@ -220,6 +395,9 @@ private enum ActionExecutionError: LocalizedError {
     case invalidActionPayload(String)
     case appleScriptFailed(String)
     case systemEventCreationFailed
+    case permissions(String)
+    case elementNotFound(String)
+    case elementInteractionFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -231,6 +409,12 @@ private enum ActionExecutionError: LocalizedError {
             return "AppleScript execution failed: \(message)"
         case .systemEventCreationFailed:
             return "Could not create keyboard event."
+        case let .permissions(message):
+            return "Permission error: \(message)"
+        case let .elementNotFound(message):
+            return "Element not found: \(message)"
+        case let .elementInteractionFailed(message):
+            return "Element interaction failed: \(message)"
         }
     }
 }

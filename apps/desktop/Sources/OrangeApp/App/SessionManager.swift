@@ -82,7 +82,15 @@ final class SessionManager {
             let plan = try await plannerClient.plan(request: request)
             state.actionPlan = plan
 
-            let prompts = safetyPolicy.evaluate(actions: plan.actions)
+            var prompts = safetyPolicy.evaluate(actions: plan.actions)
+            if plan.requiresConfirmation || plan.riskLevel == "high" || plan.riskLevel == "medium" {
+                prompts.append(
+                    SafetyPrompt(
+                        title: "Confirm Planned Actions",
+                        message: "Planner marked this command as \(plan.riskLevel) risk."
+                    )
+                )
+            }
             if prompts.isEmpty {
                 await executePlan(plan, state: state)
             } else {
