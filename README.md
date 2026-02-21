@@ -6,8 +6,6 @@ Orange is a macOS voice-to-action agent with a native Swift desktop runtime and 
 
 ![Screenshot 1](orange-screenshot-1.png)
 
-![Screenshot 2](orange-screenshot-2.png)
-
 ![Screenshot 3](orange-screenshot-3.png)
 
 ## Repository Layout
