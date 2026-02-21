@@ -2,6 +2,14 @@
 
 Orange is a macOS voice-to-action agent with a native Swift desktop runtime and a Python planning sidecar.
 
+## Screenshots
+
+![Screenshot 1](orange-screenshot-1.png)
+
+![Screenshot 2](orange-screenshot-2.png)
+
+![Screenshot 3](orange-screenshot-3.png)
+
 ## Repository Layout
 
 - `apps/desktop`: SwiftUI macOS app scaffold, contracts, and session state machine.
@@ -26,9 +34,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 7789 --reload
 ### 2) Swift app package
 
 ```bash
-cd apps/desktop
-swift build
-swift run
+
 ```
 
 ## Contract-First APIs
