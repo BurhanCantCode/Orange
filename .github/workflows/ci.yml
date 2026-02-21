@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python-sidecar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agent/requirements.txt
+      - name: Run sidecar tests
+        run: cd agent && pytest
+
+  swift-desktop:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build swift package
+        run: cd apps/desktop && swift build
