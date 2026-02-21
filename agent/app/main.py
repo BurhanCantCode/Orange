@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import json
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from core.event_bus import EventBus
 from core.planner_service import PlannerService
-from core.schemas import PlanRequest, PlanSimulationRequest, TelemetryEvent, VerifyRequest
+from core.schemas import (
+    PlanRequest,
+    PlanSimulationRequest,
+    ProviderValidationRequest,
+    TelemetryEvent,
+    VerifyRequest,
+)
 from core.verifier_service import VerifierService
+from macos_use_adapter.adapter import ProviderConfigurationError
 
 
 app = FastAPI(title="Orange Sidecar", version="0.1.0")
@@ -26,14 +33,38 @@ async def health() -> dict[str, str]:
 
 @app.post("/v1/plan")
 async def plan(request: PlanRequest) -> JSONResponse:
-    plan_result = await _planner.plan(request)
+    try:
+        plan_result = await _planner.plan(request)
+    except ProviderConfigurationError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"message": str(exc), "error_code": exc.error_code},
+        ) from exc
     return JSONResponse(plan_result.model_dump(mode="json"))
 
 
 @app.post("/v1/plan/simulate")
 async def plan_simulate(request: PlanSimulationRequest) -> JSONResponse:
-    simulation = await _planner.simulate(request)
+    try:
+        simulation = await _planner.simulate(request)
+    except ProviderConfigurationError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"message": str(exc), "error_code": exc.error_code},
+        ) from exc
     return JSONResponse(simulation.model_dump(mode="json"))
+
+
+@app.get("/v1/provider/status")
+async def provider_status() -> JSONResponse:
+    payload = _planner.provider_status()
+    return JSONResponse(payload.model_dump(mode="json"))
+
+
+@app.post("/v1/provider/validate")
+async def provider_validate(request: ProviderValidationRequest) -> JSONResponse:
+    payload = await _planner.validate_provider(request)
+    return JSONResponse(payload.model_dump(mode="json"))
 
 
 @app.get("/v1/models")

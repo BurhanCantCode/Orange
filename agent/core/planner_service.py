@@ -7,6 +7,9 @@ from core.schemas import (
     ActionPlan,
     ModelInfo,
     ModelsResponse,
+    ProviderStatusResponse,
+    ProviderValidationRequest,
+    ProviderValidationResponse,
     PlanRequest,
     PlanSimulationRequest,
     PlanSimulationResponse,
@@ -107,6 +110,24 @@ class PlannerService:
             recovery_guidance=recovery_guidance,
         )
 
+    async def validate_provider(self, request: ProviderValidationRequest) -> ProviderValidationResponse:
+        result = await self._adapter.validate_provider_key(request.api_key)
+        return ProviderValidationResponse(
+            provider=request.provider,
+            valid=result.valid,
+            reason=result.reason,
+            account_hint=result.account_hint,
+        )
+
+    def provider_status(self) -> ProviderStatusResponse:
+        return ProviderStatusResponse(
+            provider="anthropic",
+            key_configured=self._adapter.current_api_key() is not None,
+            model_simple=settings.model_simple,
+            model_complex=settings.model_complex,
+            health=True,
+        )
+
     def models(self) -> ModelsResponse:
         routing: list[ModelInfo] = [
             ModelInfo(app=None, model=settings.model_simple, reason="Default model for short/simple tasks"),
@@ -120,6 +141,7 @@ class PlannerService:
             feature_flags={
                 "enable_remote_llm": "true" if settings.enable_remote_llm else "false",
                 "safety_strictness": settings.safety_strictness,
+                "provider": settings.provider,
             },
         )
 

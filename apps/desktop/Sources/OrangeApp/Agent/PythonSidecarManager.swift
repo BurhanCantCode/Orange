@@ -7,31 +7,31 @@ final class PythonSidecarManager {
     private var restartAttempts = 0
     private var isStopping = false
     private var isStarting = false
+    private var launchAPIKey: String?
 
-    func startIfNeeded() {
+    func startIfNeeded(apiKey: String?) {
+        launchAPIKey = apiKey
         if process?.isRunning == true || isStarting { return }
         restartAttempts = 0
         startProcess()
+    }
+
+    func restart(apiKey: String?) {
+        launchAPIKey = apiKey
+        stop()
+        startIfNeeded(apiKey: apiKey)
     }
 
     private func startProcess() {
         isStarting = true
         isStopping = false
 
-        let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-
-        let agentDirectory = repoRoot.appendingPathComponent("agent")
-        guard FileManager.default.fileExists(atPath: agentDirectory.path) else {
-            Logger.error("agent directory not found at \(agentDirectory.path)")
-            return
-        }
-
         let p = Process()
-        p.currentDirectoryURL = agentDirectory
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        p.arguments = ["python3", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "7789"]
+        let launchMode = resolveLaunchMode()
+        p.currentDirectoryURL = launchMode.workingDirectory
+        p.executableURL = launchMode.executable
+        p.arguments = launchMode.arguments
+        p.environment = resolvedEnvironment(apiKey: launchAPIKey)
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -79,6 +79,70 @@ final class PythonSidecarManager {
         process?.terminate()
         process = nil
         Logger.info("Sidecar stopped")
+    }
+
+    private func resolveLaunchMode() -> LaunchMode {
+        if let bundledExecutable = bundledSidecarExecutable() {
+            let workingDirectory = bundledExecutable.deletingLastPathComponent()
+            return LaunchMode(
+                executable: bundledExecutable,
+                arguments: ["--host", "127.0.0.1", "--port", "7789"],
+                workingDirectory: workingDirectory
+            )
+        }
+
+        let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let agentDirectory = repoRoot.appendingPathComponent("agent")
+        let pythonExecutable = resolveDevPythonExecutable(agentDirectory: agentDirectory)
+
+        return LaunchMode(
+            executable: pythonExecutable,
+            arguments: ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "7789"],
+            workingDirectory: agentDirectory
+        )
+    }
+
+    private func resolveDevPythonExecutable(agentDirectory: URL) -> URL {
+        let fileManager = FileManager.default
+        let candidates = [
+            agentDirectory.appendingPathComponent(".venv/bin/python3"),
+            agentDirectory.appendingPathComponent(".venv313/bin/python3"),
+            URL(fileURLWithPath: "/opt/homebrew/bin/python3"),
+            URL(fileURLWithPath: "/usr/bin/python3"),
+        ]
+        for candidate in candidates where fileManager.isExecutableFile(atPath: candidate.path) {
+            return candidate
+        }
+        return URL(fileURLWithPath: "/usr/bin/python3")
+    }
+
+    private func bundledSidecarExecutable() -> URL? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+
+        let direct = resourceURL.appendingPathComponent("sidecar/sidecar_server")
+        if FileManager.default.isExecutableFile(atPath: direct.path) {
+            return direct
+        }
+
+        let nested = resourceURL.appendingPathComponent("sidecar/sidecar_server/sidecar_server")
+        if FileManager.default.isExecutableFile(atPath: nested.path) {
+            return nested
+        }
+
+        return nil
+    }
+
+    private func resolvedEnvironment(apiKey: String?) -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        if let key = apiKey, !key.isEmpty {
+            env["ANTHROPIC_API_KEY"] = key
+        } else {
+            env.removeValue(forKey: "ANTHROPIC_API_KEY")
+        }
+        env["PYTHONUNBUFFERED"] = "1"
+        return env
     }
 
     private func restartIfNeeded(reason: String) {
@@ -148,4 +212,10 @@ final class PythonSidecarManager {
     deinit {
         stop()
     }
+}
+
+private struct LaunchMode {
+    let executable: URL
+    let arguments: [String]
+    let workingDirectory: URL
 }

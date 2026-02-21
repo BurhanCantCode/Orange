@@ -9,8 +9,16 @@ DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/${APP_NAME}.app"
 DMG_PATH="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
 BIN_PATH="$ROOT_DIR/apps/desktop/.build/release/${APP_EXECUTABLE}"
+SIDECAR_DIR="$ROOT_DIR/agent/dist/sidecar_server"
 
 mkdir -p "$DIST_DIR"
+
+echo "[build] Building bundled sidecar runtime..."
+"$ROOT_DIR/scripts/build_sidecar.sh"
+if [[ ! -d "$SIDECAR_DIR" ]]; then
+  echo "[build] Sidecar build output missing: $SIDECAR_DIR"
+  exit 1
+fi
 
 echo "[build] Building Swift desktop target..."
 cd "$ROOT_DIR/apps/desktop"
@@ -27,6 +35,8 @@ mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$APP_EXECUTABLE"
 chmod +x "$APP_DIR/Contents/MacOS/$APP_EXECUTABLE"
+rm -rf "$APP_DIR/Contents/Resources/sidecar"
+cp -R "$SIDECAR_DIR" "$APP_DIR/Contents/Resources/sidecar"
 
 cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,11 +57,25 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
   <string>${APP_EXECUTABLE}</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Orange uses microphone input to capture your voice commands.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Orange transcribes your spoken command into text for automation.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Orange uses Apple Events to automate actions in your apps.</string>
 </dict>
 </plist>
 EOF
 
 if [[ -n "${APPLE_DEVELOPER_ID_APPLICATION:-}" ]]; then
+  if [[ -f "$APP_DIR/Contents/Resources/sidecar/sidecar_server" ]]; then
+    echo "[build] Code signing bundled sidecar executable..."
+    codesign --force --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" "$APP_DIR/Contents/Resources/sidecar/sidecar_server"
+  fi
+  if [[ -d "$APP_DIR/Contents/Resources/sidecar" ]]; then
+    echo "[build] Code signing bundled sidecar directory..."
+    codesign --force --deep --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" "$APP_DIR/Contents/Resources/sidecar"
+  fi
   echo "[build] Code signing app bundle..."
   codesign --force --deep --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" "$APP_DIR"
 else

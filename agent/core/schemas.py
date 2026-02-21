@@ -21,6 +21,7 @@ ActionKind = Literal[
 RiskLevel = Literal["low", "medium", "high"]
 ExecutionStatus = Literal["success", "failure", "partial"]
 EventSeverity = Literal["info", "warning", "error"]
+ProviderName = Literal["anthropic"]
 
 
 class AppMetadata(BaseModel):
@@ -191,3 +192,29 @@ class TelemetryEvent(BaseModel):
     status: str
     latency_ms: int | None = Field(default=None, ge=0)
     error_code: str | None = None
+
+
+class ProviderValidationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: ProviderName
+    api_key: str = Field(min_length=10)
+
+
+class ProviderValidationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: ProviderName
+    valid: bool
+    reason: str | None = None
+    account_hint: str | None = None
+
+
+class ProviderStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: ProviderName
+    key_configured: bool
+    model_simple: str
+    model_complex: str
+    health: bool

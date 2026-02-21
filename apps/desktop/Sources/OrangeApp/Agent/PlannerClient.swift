@@ -130,10 +130,52 @@ struct ModelsResponse: Codable {
     }
 }
 
+struct ProviderStatusResponse: Codable {
+    let provider: String
+    let keyConfigured: Bool
+    let modelSimple: String
+    let modelComplex: String
+    let health: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case provider
+        case keyConfigured = "key_configured"
+        case modelSimple = "model_simple"
+        case modelComplex = "model_complex"
+        case health
+    }
+}
+
+struct ProviderValidateRequest: Codable {
+    let provider: String
+    let apiKey: String
+
+    enum CodingKeys: String, CodingKey {
+        case provider
+        case apiKey = "api_key"
+    }
+}
+
+struct ProviderValidateResponse: Codable {
+    let provider: String
+    let valid: Bool
+    let reason: String?
+    let accountHint: String?
+
+    enum CodingKeys: String, CodingKey {
+        case provider
+        case valid
+        case reason
+        case accountHint = "account_hint"
+    }
+}
+
 protocol PlannerClient {
     func plan(request: PlanRequest) async throws -> ActionPlan
     func simulate(request: PlanSimulationRequest) async throws -> PlanSimulationResponse
     func models() async throws -> ModelsResponse
+    func providerStatus() async throws -> ProviderStatusResponse
+    func validateProvider(request: ProviderValidateRequest) async throws -> ProviderValidateResponse
     func telemetry(event: SessionTelemetryEvent) async
     func verify(
         sessionId: String,
@@ -144,4 +186,22 @@ protocol PlannerClient {
         afterContext: String?
     ) async throws -> VerifyResponse
     func streamEvents(sessionId: String) -> AsyncThrowingStream<PlannerStreamEvent, Error>
+}
+
+enum PlannerServiceError: LocalizedError {
+    case server(message: String, errorCode: String?)
+
+    var errorDescription: String? {
+        switch self {
+        case let .server(message, _):
+            return message
+        }
+    }
+
+    var code: String? {
+        switch self {
+        case let .server(_, errorCode):
+            return errorCode
+        }
+    }
 }

@@ -160,6 +160,22 @@ final class SessionManager {
                 state.statusText = "Canceled"
                 return
             }
+            if let plannerError = error as? PlannerServiceError,
+               let code = plannerError.code,
+               code == "missing_api_key" || code == "invalid_api_key" || code == "invalid_api_key_format"
+            {
+                state.onboardingGate = .needsAPIKey
+                state.sidecarHealthy = false
+                state.state = .failed
+                state.statusText = "Anthropic API key required. Open API Key Setup."
+                submitTelemetry(
+                    state: state,
+                    stage: "planning",
+                    status: "failed",
+                    errorCode: code
+                )
+                return
+            }
             state.state = .failed
             state.statusText = "Failed: \(error.localizedDescription)"
             submitTelemetry(

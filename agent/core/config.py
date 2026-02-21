@@ -13,9 +13,11 @@ SCHEMA_VERSION_MIN = 0
 class Settings:
     host: str = os.getenv("ORANGE_SIDECAR_HOST", "127.0.0.1")
     port: int = int(os.getenv("ORANGE_SIDECAR_PORT", "7789"))
-    model_simple: str = os.getenv("ORANGE_MODEL_SIMPLE", "gpt-4o-mini")
-    model_complex: str = os.getenv("ORANGE_MODEL_COMPLEX", "gpt-4o")
-    enable_remote_llm: bool = os.getenv("ORANGE_ENABLE_REMOTE_LLM", "0") == "1"
+    provider: str = os.getenv("ORANGE_PROVIDER", "anthropic")
+    model_simple: str = os.getenv("ORANGE_MODEL_SIMPLE", "claude-3-5-haiku-latest")
+    model_complex: str = os.getenv("ORANGE_MODEL_COMPLEX", "claude-3-5-sonnet-latest")
+    enable_remote_llm: bool = os.getenv("ORANGE_ENABLE_REMOTE_LLM", "1") == "1"
+    anthropic_api_base: str = os.getenv("ANTHROPIC_API_BASE", "https://api.anthropic.com")
     safety_strictness: str = os.getenv("ORANGE_SAFETY_STRICTNESS", "strict")
     model_overrides_raw: str = os.getenv("ORANGE_MODEL_OVERRIDES", "")
 
@@ -30,8 +32,7 @@ class Settings:
     @property
     def model_overrides(self) -> dict[str, str]:
         """
-        Parse per-app model overrides from:
-        ORANGE_MODEL_OVERRIDES="Safari:gpt-4o,Slack:gpt-4o-mini"
+        Parse per-app model overrides from ORANGE_MODEL_OVERRIDES.
         """
         result: dict[str, str] = {}
         for part in self.model_overrides_raw.split(","):
@@ -44,6 +45,14 @@ class Settings:
             if app_key and model_value:
                 result[app_key] = model_value
         return result
+
+    @property
+    def provider_api_key_env(self) -> str:
+        return "ANTHROPIC_API_KEY"
+
+    def provider_api_key(self) -> str | None:
+        value = os.getenv(self.provider_api_key_env, "").strip()
+        return value or None
 
 
 settings = Settings()

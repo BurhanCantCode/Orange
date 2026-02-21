@@ -1,6 +1,12 @@
 import Foundation
 import SwiftUI
 
+enum OnboardingGate: String {
+    case needsAPIKey
+    case needsPermissions
+    case ready
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var state: SessionState = .idle
@@ -12,6 +18,9 @@ final class AppState: ObservableObject {
     @Published var safetyAuditTrail: [SafetyDecisionRecord] = []
     @Published var executionResult: ExecutionResult?
     @Published var plannerEvents: [PlannerStreamEvent] = []
+    @Published var onboardingGate: OnboardingGate = .needsAPIKey
+    @Published var sidecarHealthy: Bool = false
+    @Published var diagnosticsText: String = ""
 
     var sessionId: String = UUID().uuidString
 
@@ -25,5 +34,9 @@ final class AppState: ObservableObject {
         executionResult = nil
         plannerEvents = []
         state = .idle
+    }
+
+    var isReadyForCommands: Bool {
+        onboardingGate == .ready && sidecarHealthy
     }
 }

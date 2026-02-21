@@ -17,9 +17,15 @@ final class HTTPPlannerClient: PlannerClient {
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
         let (data, response) = try await session.data(for: urlRequest)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200 ... 299).contains(httpResponse.statusCode) else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            let detail = parseServerDetail(from: data)
+            throw PlannerServiceError.server(
+                message: detail?.message ?? "Planning request failed",
+                errorCode: detail?.errorCode
+            )
         }
 
         return try JSONDecoder().decode(ActionPlan.self, from: data)
@@ -33,9 +39,15 @@ final class HTTPPlannerClient: PlannerClient {
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
         let (data, response) = try await session.data(for: urlRequest)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200 ... 299).contains(httpResponse.statusCode) else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            let detail = parseServerDetail(from: data)
+            throw PlannerServiceError.server(
+                message: detail?.message ?? "Plan simulation failed",
+                errorCode: detail?.errorCode
+            )
         }
 
         return try JSONDecoder().decode(PlanSimulationResponse.self, from: data)
@@ -53,6 +65,47 @@ final class HTTPPlannerClient: PlannerClient {
             throw URLError(.badServerResponse)
         }
         return try JSONDecoder().decode(ModelsResponse.self, from: data)
+    }
+
+    func providerStatus() async throws -> ProviderStatusResponse {
+        let endpoint = baseURL.appendingPathComponent("/v1/provider/status")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            let detail = parseServerDetail(from: data)
+            throw PlannerServiceError.server(
+                message: detail?.message ?? "Failed to fetch provider status",
+                errorCode: detail?.errorCode
+            )
+        }
+        return try JSONDecoder().decode(ProviderStatusResponse.self, from: data)
+    }
+
+    func validateProvider(request payload: ProviderValidateRequest) async throws -> ProviderValidateResponse {
+        let endpoint = baseURL.appendingPathComponent("/v1/provider/validate")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            let detail = parseServerDetail(from: data)
+            throw PlannerServiceError.server(
+                message: detail?.message ?? "Provider validation failed",
+                errorCode: detail?.errorCode
+            )
+        }
+        return try JSONDecoder().decode(ProviderValidateResponse.self, from: data)
     }
 
     func telemetry(event: SessionTelemetryEvent) async {
@@ -93,9 +146,15 @@ final class HTTPPlannerClient: PlannerClient {
         request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200 ... 299).contains(httpResponse.statusCode) else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            let detail = parseServerDetail(from: data)
+            throw PlannerServiceError.server(
+                message: detail?.message ?? "Verification request failed",
+                errorCode: detail?.errorCode
+            )
         }
 
         return try JSONDecoder().decode(VerifyResponse.self, from: data)
@@ -135,6 +194,25 @@ final class HTTPPlannerClient: PlannerClient {
             }
         }
     }
+}
+
+private struct ServerErrorDetail {
+    let message: String
+    let errorCode: String?
+}
+
+private func parseServerDetail(from data: Data) -> ServerErrorDetail? {
+    guard let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        return nil
+    }
+    if let detail = payload["detail"] as? [String: Any],
+       let message = detail["message"] as? String {
+        return ServerErrorDetail(message: message, errorCode: detail["error_code"] as? String)
+    }
+    if let detail = payload["detail"] as? String {
+        return ServerErrorDetail(message: detail, errorCode: nil)
+    }
+    return nil
 }
 
 private struct VerifyRequestPayload: Codable {

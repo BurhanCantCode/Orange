@@ -11,7 +11,7 @@ export default function PrivacyPage() {
         <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-black/75">
           <li>Transcripts from hold-to-talk sessions.</li>
           <li>Planner and execution telemetry (latency, status, error codes).</li>
-          <li>Billing and account metadata for subscription management.</li>
+          <li>Optional waitlist contact details for private beta onboarding.</li>
         </ul>
         <h2 className="mt-6 text-xl font-semibold">Retention</h2>
         <p className="mt-3 text-sm text-black/75">
