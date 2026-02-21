@@ -1,28 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orange - Your Mac. Your Voice. Your Agent.</title>
+    <title>Orange | Your Mac. Your Voice. Your Agent.</title>
+
     <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <!-- Tailwind -->
+
+    <!-- CDNs -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
                 extend: {
+                    colors: {
+                        black: '#0A0A0A',
+                        orange: '#FF6B00',
+                        amber: '#FFB347',
+                        offwhite: '#F5F5F7'
+                    },
                     fontFamily: {
                         syne: ['Syne', 'sans-serif'],
                         space: ['Space Grotesk', 'sans-serif'],
-                    },
-                    colors: {
-                        dark: '#0A0A0A',
-                        orange: '#FF6B00',
-                        amber: '#FFB347',
                     }
                 }
             }
@@ -30,20 +40,18 @@
     </script>
 
     <style>
-        body {
-            background-color: #0A0A0A;
-            color: #fff;
-            margin: 0;
-            overflow-x: hidden;
-            font-family: 'Space Grotesk', sans-serif;
-            cursor: none;
+        :root {
+            --bg: #0A0A0A;
+            --orange: #FF6B00;
+            --amber: #FFB347;
         }
 
-        h1,
-        h2,
-        h3,
-        .font-syne {
-            font-family: 'Syne', sans-serif;
+        body {
+            background-color: var(--bg);
+            color: #F5F5F7;
+            overflow-x: hidden;
+            margin: 0;
+            cursor: none;
         }
 
         /* Custom Cursor */
@@ -60,96 +68,116 @@
             transform: translate(-50%, -50%);
             mix-blend-mode: exclusion;
             transition: width 0.3s, height 0.3s, background-color 0.3s;
+            will-change: width, height, background-color, transform;
         }
 
         .cursor-active {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             background: rgba(255, 179, 71, 1);
         }
 
-        /* Hero Text Hover: Chromatic Aberration & Dither */
-        .hero-text {
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 107, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--orange);
+        }
+
+        /* WebGL Background */
+        #webgl-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Dithering / Noise Overlay */
+        .noise-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+            opacity: 0.15;
+            background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+        }
+
+        /* Chromatic Aberration Hover */
+        .hover-target {}
+
+        /* for JS tracking */
+        .chromatic-hover {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), text-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
-            transition: all 0.3s ease;
             display: inline-block;
         }
 
-        .hero-text:hover {
+        .chromatic-hover:hover {
+            transform: skewX(-2deg) scale(1.02);
             text-shadow:
-                4px 0px 0 rgba(255, 107, 0, 0.9),
-                -4px 0px 0 rgba(0, 255, 255, 0.6),
-                0px 4px 0 rgba(255, 179, 71, 0.7);
-            /* Fake dither effect */
-            filter: contrast(150%) brightness(120%) sepia(50%) hue-rotate(-30deg);
+                4px 0px 0px rgba(255, 107, 0, 0.8),
+                -4px 0px 0px rgba(0, 200, 255, 0.8);
         }
 
-        /* CTA Liquid Hover */
-        .cta-btn {
+        /* Bento Cards */
+        .bento-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+            border: 1px solid rgba(255, 107, 0, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.1s ease-out;
             position: relative;
             overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            background: transparent;
-            border: 1px solid #FF6B00;
-            color: #FF6B00;
+            transform-style: preserve-3d;
         }
 
-        .cta-btn::before {
-            content: '';
+        .bento-card::before {
+            content: "";
             position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #FF6B00;
-            border-radius: 50% 50% 0 0;
-            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
-            z-index: -1;
-        }
-
-        .cta-btn:hover {
-            color: #0A0A0A;
-            box-shadow: 0 0 30px rgba(255, 107, 0, 0.6);
-        }
-
-        .cta-btn:hover::before {
             top: 0;
-            border-radius: 0;
-        }
-
-        /* Bento Grid Glassmorphism */
-        .bento-card {
-            background: rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 107, 0, 0.1);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at top left, rgba(255, 107, 0, 0.1), transparent 40%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
         }
 
         .bento-card:hover {
-            border-color: rgba(255, 107, 0, 0.3);
-            box-shadow: 0 30px 60px rgba(255, 107, 0, 0.15);
+            border-color: rgba(255, 107, 0, 0.4);
+            box-shadow: 0 20px 40px -10px rgba(255, 107, 0, 0.15);
+        }
+
+        .bento-card:hover::before {
+            opacity: 1;
+        }
+
+        /* Liquid Mercury / Gooey Effect for CTA */
+        .goo-filter {
+            filter: url('#goo');
         }
 
         /* Marquee */
-        .marquee-wrapper {
+        .marquee-container {
             display: flex;
-            white-space: nowrap;
-            overflow: hidden;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 107, 0, 0.05);
-            padding: 2rem 0;
-        }
-
-        .marquee {
+            width: 200%;
             animation: marquee 20s linear infinite;
-            display: inline-flex;
-            gap: 2rem;
-            padding-right: 2rem;
         }
 
         @keyframes marquee {
@@ -158,626 +186,812 @@
             }
 
             100% {
-                transform: translateX(-100%);
+                transform: translateX(-50%);
             }
         }
 
-        /* Shader Canvases */
-        #hero-shader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -2;
-            pointer-events: none;
+        /* Utility */
+        .reveal {
+            visibility: hidden;
         }
 
-        #hero-orb {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -1;
-            pointer-events: none;
-        }
-
-        #diagram-canvas {
-            width: 100%;
-            height: 100%;
-            min-height: 400px;
+        .magnetic-wrap {
+            display: inline-block;
+            cursor: none;
         }
     </style>
 </head>
 
-<body class="antialiased">
+<body class="font-space antialiased selection:bg-orange selection:text-black">
 
     <div class="cursor" id="cursor"></div>
 
-    <!-- Hero Shaders -->
-    <canvas id="hero-shader"></canvas>
-    <div id="hero-orb"></div>
+    <!-- Global SVG Filters -->
+    <svg style="visibility: hidden; position: absolute;" width="0" height="0" xmlns="http://www.w3.org/2000/svg"
+        version="1.1">
+        <defs>
+            <filter id="goo">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+                    result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+            </filter>
+        </defs>
+    </svg>
+
+    <div id="webgl-container"></div>
+    <div class="noise-overlay"></div>
 
     <!-- Navigation -->
-    <nav class="fixed top-0 w-full z-50 p-6 mix-blend-difference">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="text-2xl font-syne font-bold tracking-tight text-white flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-orange animate-pulse"></div>
-                Orange
-            </div>
-            <div class="text-white/60 text-sm tracking-widest uppercase font-space hidden md:block">
-                macOS Native AI
-            </div>
-        </div>
+    <nav class="fixed top-0 left-0 w-full z-40 px-8 py-6 flex justify-between items-center mix-blend-difference">
+        <div class="font-syne font-bold text-xl tracking-tighter text-white hover-target inline-block"
+            style="cursor:none;">ORANGE</div>
+        <div class="font-space text-xs tracking-widest text-white/70 uppercase">v1.0.0 Alpha</div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="h-screen flex flex-col items-center justify-center px-4 relative z-10">
-        <div class="max-w-5xl mx-auto text-center will-change-transform" id="hero-content">
-            <h1
-                class="text-5xl md:text-7xl lg:text-8xl font-syne font-extrabold leading-none tracking-tighter mb-6 uppercase">
-                <span class="hero-text">Your Mac.</span><br>
-                <span class="hero-text text-transparent bg-clip-text bg-gradient-to-r from-orange to-amber">Your
-                    Voice.</span><br>
-                <span class="hero-text">Your Agent.</span>
-            </h1>
-            <p class="text-lg md:text-2xl text-white/50 max-w-2xl mx-auto mt-8 opacity-0 gs-reveal font-space">
-                A macOS-native AI that listens to your voice and executes real actions precisely. Not a chatbot—a silent
-                executor.
-            </p>
-        </div>
-        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-50">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 5v14M19 12l-7 7-7-7" />
-            </svg>
-        </div>
-    </section>
+    <main class="relative z-10 w-full">
 
-    <!-- How It Works Section  -->
-    <section class="py-32 px-4 relative z-10 bg-dark/80 backdrop-blur-2xl border-t border-white/5" id="how-it-works">
-        <div class="max-w-7xl mx-auto">
-            <div class="mb-16 gs-reveal">
-                <h2 class="text-4xl md:text-5xl font-syne font-bold mb-4">Architecture of Execution</h2>
-                <p class="text-white/50 text-xl font-space uppercase tracking-wider">Voice Input → Planning Sidecar →
-                    macOS Native Integration</p>
+        <!-- HERO SECTION -->
+        <section id="hero" class="h-screen w-full flex flex-col justify-center px-8 md:px-24 pt-32">
+            <div class="max-w-5xl z-10 pointer-events-auto mt-12">
+                <p class="font-space text-orange uppercase tracking-[0.3em] text-xs mb-6 reveal">Macos-Native Voice
+                    Agent</p>
+                <h1
+                    class="font-syne font-extrabold text-5xl md:text-7xl lg:text-[6rem] leading-[0.9] text-offwhite uppercase">
+                    <span class="block reveal"><span class="chromatic-hover hover-target">Your Mac.</span></span>
+                    <span class="block reveal"><span class="chromatic-hover hover-target">Your Voice.</span></span>
+                    <span class="block reveal text-orange drop-shadow-[0_0_30px_rgba(255,107,0,0.4)]"><span
+                            class="chromatic-hover hover-target">Your Agent.</span></span>
+                </h1>
+                <p class="font-space text-lg md:text-xl text-white/60 mt-10 max-w-lg leading-relaxed reveal">
+                    Bypass the UI. Speak naturally. Orange executes complex workflows directly on your native macOS
+                    environment with raw AI precision.
+                </p>
             </div>
 
-            <div class="w-full h-[600px] rounded-3xl overflow-hidden glass gs-reveal bento-card relative handle-tilt"
-                data-tilt>
-                <div id="diagram-canvas"></div>
-                <div
-                    class="absolute top-8 left-8 text-white/40 text-sm uppercase tracking-widest font-syne mix-blend-difference pointer-events-none">
-                    Real-time Data Flow</div>
+            <!-- Scroll Indicator -->
+            <div
+                class="absolute bottom-10 left-8 md:left-24 font-space text-xs tracking-widest text-white/40 uppercase animate-pulse">
+                Scroll to initialize
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Bento Grid Stats -->
-    <section class="py-32 px-4 relative z-10" id="stats-section">
-        <div class="max-w-7xl mx-auto">
-            <h2 class="text-4xl md:text-6xl font-syne font-bold mb-16 uppercase gs-reveal text-center">Instant. Precise.
-                Native.</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[300px]">
-                <!-- Card 1 -->
-                <div class="md:col-span-8 bento-card rounded-3xl p-10 flex flex-col justify-between group handle-tilt gs-reveal"
-                    data-tilt>
-                    <div class="text-orange mb-4"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 6v6l4 2" />
-                        </svg></div>
-                    <div>
-                        <div class="text-6xl md:text-8xl font-syne font-bold mb-2 flex items-baseline gap-2">
-                            <span class="counter" data-target="0">0</span>
-                            <span class="text-2xl text-white/30">ms</span>
-                        </div>
-                        <h3 class="text-2xl font-syne text-white/80">Zero GUI Latency</h3>
-                    </div>
+        <!-- HOW IT WORKS (Diagram overlay) -->
+        <section id="diagram" class="min-h-screen w-full flex items-center px-8 md:px-24 pointer-events-none relative">
+            <div class="w-full flex justify-between items-center z-10">
+                <!-- Text elements mapping to the 3D nodes behind them -->
+                <div class="w-1/3 reveal">
+                    <h3 class="font-syne text-3xl font-bold text-white mb-2">01. Voice</h3>
+                    <p class="font-space text-white/50 text-sm w-48">Natural language captured globally via custom
+                        shortcut.</p>
                 </div>
-
-                <!-- Card 2 -->
-                <div class="md:col-span-4 bento-card rounded-3xl p-10 flex flex-col justify-between group handle-tilt gs-reveal"
-                    data-tilt>
-                    <div class="text-amber mb-4"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                            <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg></div>
-                    <div>
-                        <div class="text-6xl md:text-8xl font-syne font-bold mb-2 flex items-baseline gap-2">
-                            <span class="counter" data-target="100">0</span>
-                            <span class="text-2xl text-white/30">%</span>
-                        </div>
-                        <h3 class="text-xl font-syne text-white/80">Native Execution</h3>
-                    </div>
+                <div class="w-1/3 flex flex-col items-center text-center reveal">
+                    <h3 class="font-syne text-3xl font-bold text-orange mb-2">02. Plan</h3>
+                    <p class="font-space text-white/50 text-sm w-48">LLM Sidecar breaks request into executable atomic
+                        tasks.</p>
                 </div>
+                <div class="w-1/3 flex flex-col items-end text-right reveal">
+                    <h3 class="font-syne text-3xl font-bold text-white mb-2">03. Action</h3>
+                    <p class="font-space text-white/50 text-sm w-48">Native execution via Accessibility APIs &
+                        AppleScript.</p>
+                </div>
+            </div>
+        </section>
 
-                <!-- Card 3 CTA -->
-                <div
-                    class="md:col-span-12 bento-card rounded-3xl p-10 flex flex-col md:flex-row justify-between items-center group relative overflow-hidden gs-reveal hover:border-orange transition-colors duration-500">
+        <!-- BENTO GRID FEATURES -->
+        <section id="bento"
+            class="min-h-screen w-full px-8 md:px-24 py-24 flex items-center z-20 relative pointer-events-auto">
+            <div class="w-full max-w-7xl mx-auto">
+                <h2 class="font-syne text-5xl md:text-6xl font-bold mb-12 reveal">Instant. Precise. Native.</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[280px]">
+                    <!-- Card 1 -->
                     <div
-                        class="absolute inset-0 bg-gradient-to-r from-orange/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none">
-                    </div>
-                    <div class="relative z-10 w-full md:w-1/2">
-                        <h3 class="text-4xl md:text-5xl font-syne font-bold mb-6">Unleash Your Mac</h3>
-                        <p class="text-white/60 text-lg mb-8 max-w-md font-space">Join the private beta to experience
-                            the pinnacle of desktop AI integration.</p>
-
-                        <button
-                            class="cta-btn px-8 py-4 rounded-full font-bold uppercase tracking-widest text-sm hover-trigger"
-                            id="cta-btn">
-                            <span class="relative z-10 font-space font-bold">Try Orange</span>
-                        </button>
-                    </div>
-                    <div class="relative z-10 md:w-1/2 flex justify-center mt-12 md:mt-0">
-                        <!-- Abstract symbol pulsing -->
-                        <div
-                            class="w-40 h-40 rounded-full border border-orange/20 flex items-center justify-center animate-[spin_10s_linear_infinite] group-hover:border-orange/50 transition-colors duration-1000">
+                        class="bento-card hover-target col-span-1 md:col-span-2 p-10 flex flex-col justify-between reveal group">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-syne text-3xl font-semibold">Execution Latency</h3>
                             <div
-                                class="w-28 h-28 rounded-full border border-amber/30 flex items-center justify-center animate-[spin_8s_linear_infinite_reverse] group-hover:border-amber/60 transition-colors duration-1000">
+                                class="w-12 h-12 rounded-full border border-orange/30 flex items-center justify-center text-orange group-hover:bg-orange group-hover:text-black transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-7xl font-space font-bold text-orange count-ms">0</span>
+                            <span class="text-xl font-space text-white/50">ms</span>
+                        </div>
+                        <p class="font-space text-white/60 text-sm w-2/3" style="transform: translateZ(20px);">Local
+                            processing hybrid architecture ensures near-instant response times.</p>
+                    </div>
+
+                    <!-- Card 2 -->
+                    <div class="bento-card hover-target col-span-1 p-10 flex flex-col justify-between reveal">
+                        <h3 class="font-syne text-2xl font-semibold">Native Hooks</h3>
+                        <div class="flex items-baseline gap-1 my-4">
+                            <span class="text-6xl font-space font-bold text-amber count-apps">0</span>
+                            <span class="text-3xl font-space text-amber">+</span>
+                        </div>
+                        <p class="font-space text-white/60 text-sm">Deeply integrated with core macOS apps and UI
+                            elements automatically.</p>
+                    </div>
+
+                    <!-- Card 3 -->
+                    <div class="bento-card hover-target col-span-1 p-10 flex flex-col justify-between reveal">
+                        <h3 class="font-syne text-2xl font-semibold">Always Ready</h3>
+                        <div class="my-auto">
+                            <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                                 <div
-                                    class="w-16 h-16 rounded-full bg-gradient-to-tr from-orange to-amber blur-[10px] group-hover:blur-[20px] transition-all duration-1000">
+                                    class="h-full bg-orange w-full origin-left animate-[pulse_2s_ease-in-out_infinite]">
                                 </div>
                             </div>
                         </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e]"></div>
+                            <span class="font-space text-sm text-white/80">Background daemon active</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 4 -->
+                    <div
+                        class="bento-card hover-target col-span-1 md:col-span-2 p-10 flex flex-col justify-between reveal overflow-hidden relative">
+                        <!-- Abstract Code background -->
+                        <div
+                            class="absolute inset-0 opacity-10 font-mono text-xs p-4 leading-loose pointer-events-none select-none text-orange overflow-hidden">
+                            async function executePlan(plan) {<br>
+                            &nbsp;&nbsp;const nodes = plan.parse();<br>
+                            &nbsp;&nbsp;for (const node of nodes) {<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;await macOS.dispatch(node.intent);<br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;await memory.commit(node.state);<br>
+                            &nbsp;&nbsp;}<br>
+                            &nbsp;&nbsp;return Context.Success;<br>
+                            }
+                        </div>
+                        <h3 class="font-syne text-3xl font-semibold relative z-10">Smart Context</h3>
+                        <div class="relative z-10 flex items-baseline gap-2 mt-4">
+                            <span class="text-7xl font-space font-bold text-white count-context">0</span>
+                            <span class="text-xl font-space text-white/50">%</span>
+                        </div>
+                        <p class="font-space text-white/60 text-sm w-3/4 relative z-10 mt-4">Screen awareness allows
+                            Orange to know exactly what you're looking at, meaning you can say "Summarize this" and it
+                            just works.</p>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Footer Marquee -->
-    <footer class="mt-20 relative z-10 bg-dark overflow-hidden">
-        <div class="marquee-wrapper rotate-[-2deg] scale-[1.05] bg-orange/5">
-            <div class="marquee">
-                <span class="text-6xl font-syne font-bold uppercase tracking-widest text-transparent"
-                    style="-webkit-text-stroke: 1px rgba(255,107,0,0.5);">voice → plan → action • macOS native • always
-                    listening • </span>
-                <span class="text-6xl font-syne font-bold uppercase tracking-widest text-transparent"
-                    style="-webkit-text-stroke: 1px rgba(255,107,0,0.5);">voice → plan → action • macOS native • always
-                    listening • </span>
-                <span class="text-6xl font-syne font-bold uppercase tracking-widest text-transparent"
-                    style="-webkit-text-stroke: 1px rgba(255,107,0,0.5);">voice → plan → action • macOS native • always
-                    listening • </span>
+        <!-- CTA SECTION -->
+        <section id="cta"
+            class="min-h-screen w-full flex flex-col justify-center items-center relative z-20 pointer-events-auto">
+            <h2 class="font-syne text-5xl md:text-7xl font-bold mb-16 text-center reveal hover-target">Command your
+                machine.</h2>
+
+            <div class="magnetic-wrap hover-target" id="cta-button-wrap">
+                <button
+                    class="relative px-16 py-8 rounded-full font-syne font-bold text-3xl text-black bg-orange overflow-hidden group goo-filter transition-colors duration-500 hover:text-white"
+                    id="cta-button">
+                    <span
+                        class="relative z-10 pointer-events-none mix-blend-color-burn group-hover:mix-blend-normal transition-all duration-300">Try
+                        Orange</span>
+
+                    <!-- Liquid Mercury internal fill -->
+                    <div
+                        class="absolute inset-0 bg-amber rounded-full scale-0 group-hover:scale-[1.5] transition-transform duration-700 ease-out z-0 origin-center">
+                    </div>
+                    <div
+                        class="absolute inset-0 bg-black rounded-full scale-0 group-hover:scale-[1.1] transition-transform duration-700 delay-100 ease-out z-0 origin-center">
+                    </div>
+                </button>
             </div>
-        </div>
-        <div class="py-12 text-center text-white/30 text-xs md:text-sm tracking-[0.3em] font-space uppercase">
-            &copy; 2026 ORANGE AI. DESIGNED FOR EXECUTION.
-        </div>
-    </footer>
+        </section>
 
-    <!-- CDN Imports -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+        <!-- FOOTER MARQUEE -->
+        <!-- WAITLIST SECTION -->
+        <section id="waitlist" class="mx-auto max-w-6xl px-6 pb-14 pt-24 md:px-10 relative z-20 pointer-events-auto">
+            <div class="grid gap-10 md:grid-cols-[1.2fr_1fr]">
+                <div class="reveal">
+                    <p class="inline-flex rounded-full border border-orange/30 bg-orange/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-orange">
+                        Private Beta - BYOK Anthropic
+                    </p>
+                    <h2 class="mt-6 font-syne text-5xl font-semibold leading-tight md:text-6xl text-offwhite hover-target">
+                        Install Orange, add your Anthropic key, and run commands across Mac apps.
+                    </h2>
+                    <p class="mt-5 max-w-xl text-base text-white/75 md:text-lg font-space">
+                        No payments or account plans in this phase. Orange is local-first with a bundled sidecar runtime and safety confirmations for risky actions.
+                    </p>
 
+                    <div class="mt-8 flex flex-wrap items-center gap-3">
+                        <a href="/download" class="hover-target rounded-xl bg-orange px-5 py-3 text-sm font-semibold text-black transition hover:bg-amber text-center">
+                            Download Beta DMG
+                        </a>
+                        <a href="/pricing" class="hover-target rounded-xl border border-white/25 px-5 py-3 text-sm font-semibold text-white transition hover:border-orange hover:text-orange text-center">
+                            BYOK Details
+                        </a>
+                    </div>
+
+                    <div class="mt-10 grid gap-3 sm:grid-cols-3 font-space">
+                        <div class="rounded-2xl border border-white/15 bg-black/25 px-4 py-3 backdrop-blur-md">
+                            <p class="text-xs uppercase tracking-[0.16em] text-white/50">Latency target</p>
+                            <p class="mt-1 text-lg font-semibold text-amber">p95 &lt; 4s</p>
+                        </div>
+                        <div class="rounded-2xl border border-white/15 bg-black/25 px-4 py-3 backdrop-blur-md">
+                            <p class="text-xs uppercase tracking-[0.16em] text-white/50">Distribution</p>
+                            <p class="mt-1 text-lg font-semibold text-amber">Signed DMG</p>
+                        </div>
+                        <div class="rounded-2xl border border-white/15 bg-black/25 px-4 py-3 backdrop-blur-md">
+                            <p class="text-xs uppercase tracking-[0.16em] text-white/50">Provider</p>
+                            <p class="mt-1 text-lg font-semibold text-amber">Anthropic only</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="waitlist-form" class="reveal rounded-3xl border border-white/15 bg-black/30 p-6 backdrop-blur-md font-space">
+                    <h2 class="text-xl font-semibold text-offwhite">Request private-beta access</h2>
+                    <p class="mt-2 text-sm text-white/70">
+                        Share your work email. We will send install access and onboarding notes.
+                    </p>
+
+                    <label class="mt-5 block text-sm text-white/80">
+                        Name
+                        <input type="text" id="wl-name" required class="hover-target mt-2 w-full rounded-xl border border-white/20 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange transition-colors" placeholder="Jane Doe" autocomplete="name" />
+                    </label>
+
+                    <label class="mt-4 block text-sm text-white/80">
+                        Work email
+                        <input type="email" id="wl-email" required class="hover-target mt-2 w-full rounded-xl border border-white/20 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange transition-colors" placeholder="jane@company.com" autocomplete="email" />
+                    </label>
+
+                    <label class="mt-4 block text-sm text-white/80">
+                        Primary use case
+                        <textarea id="wl-usecase" class="hover-target mt-2 h-24 w-full resize-none rounded-xl border border-white/20 bg-black/40 px-3 py-2 text-sm outline-none focus:border-orange transition-colors" placeholder="Slack triage, email drafting, calendar updates..."></textarea>
+                    </label>
+
+                    <button type="submit" id="wl-submit" class="hover-target mt-5 w-full rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-black disabled:cursor-not-allowed disabled:opacity-50 transition-colors hover:bg-orange">
+                        Join Waitlist
+                    </button>
+
+                    <p id="wl-message" class="mt-3 text-sm hidden"></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- SUPPORTED APPS SECTION -->
+        <section id="supported-apps" class="mx-auto max-w-6xl px-6 pb-24 md:px-10 relative z-20 pointer-events-auto reveal font-space">
+            <div class="overflow-hidden rounded-3xl border border-white/10 bg-black/25 backdrop-blur-md">
+                <div class="grid grid-cols-[1.2fr_0.6fr_1.2fr] border-b border-white/10 px-5 py-3 text-xs uppercase tracking-[0.18em] text-white/55">
+                    <p>App</p>
+                    <p>Status</p>
+                    <p>Coverage</p>
+                </div>
+                
+                <div class="grid grid-cols-[1.2fr_0.6fr_1.2fr] border-b border-white/5 px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors">
+                    <p>Safari / Chrome</p>
+                    <p class="text-orange">Supported</p>
+                    <p class="text-white/65">Open URL, search, tab navigation</p>
+                </div>
+                <div class="grid grid-cols-[1.2fr_0.6fr_1.2fr] border-b border-white/5 px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors">
+                    <p>Slack</p>
+                    <p class="text-orange">Supported</p>
+                    <p class="text-white/65">Draft and reply with confirmation</p>
+                </div>
+                <div class="grid grid-cols-[1.2fr_0.6fr_1.2fr] border-b border-white/5 px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors">
+                    <p>Mail / Gmail</p>
+                    <p class="text-orange">Supported</p>
+                    <p class="text-white/65">Draft + guarded send flow</p>
+                </div>
+                <div class="grid grid-cols-[1.2fr_0.6fr_1.2fr] border-b border-white/5 px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors">
+                    <p>Finder</p>
+                    <p class="text-orange">Supported</p>
+                    <p class="text-white/65">Create, rename, move, navigate</p>
+                </div>
+                <div class="grid grid-cols-[1.2fr_0.6fr_1.2fr] px-5 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors">
+                    <p>Calendar</p>
+                    <p class="text-orange">Supported</p>
+                    <p class="text-white/65">Create and update events</p>
+                </div>
+            </div>
+        </section>
+        <footer class="w-full py-6 border-t border-white/10 bg-black/50 backdrop-blur-md relative z-20 hover-target">
+            <div class="overflow-hidden whitespace-nowrap">
+                <div class="marquee-container font-space text-lg md:text-xl tracking-widest text-white/40 uppercase">
+                    <span>voice → plan → action &nbsp; • &nbsp; macOS native &nbsp; • &nbsp; always listening &nbsp; •
+                        &nbsp; privacy first &nbsp; • &nbsp; </span>
+                    <span>voice → plan → action &nbsp; • &nbsp; macOS native &nbsp; • &nbsp; always listening &nbsp; •
+                        &nbsp; privacy first &nbsp; • &nbsp; </span>
+                    <span>voice → plan → action &nbsp; • &nbsp; macOS native &nbsp; • &nbsp; always listening &nbsp; •
+                        &nbsp; privacy first &nbsp; • &nbsp; </span>
+                    <span>voice → plan → action &nbsp; • &nbsp; macOS native &nbsp; • &nbsp; always listening &nbsp; •
+                        &nbsp; privacy first &nbsp; • &nbsp; </span>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- JS Logic -->
     <script>
-        gsap.registerPlugin(ScrollTrigger);
+        // Ensure scripts load before running
+        window.addEventListener('load', init);
 
-        // --- Custom Cursor ---
-        const cursor = document.getElementById('cursor');
-        document.addEventListener('mousemove', (e) => {
-            cursor.style.left = e.clientX + 'px';
-            cursor.style.top = e.clientY + 'px';
-        });
+        function init() {
 
-        const hoverElements = document.querySelectorAll('button, a, .hero-text, .bento-card, .hover-trigger');
-        hoverElements.forEach(el => {
-            el.addEventListener('mouseenter', () => cursor.classList.add('cursor-active'));
-            el.addEventListener('mouseleave', () => cursor.classList.remove('cursor-active'));
-        });
+            // --- 0. CUSTOM CURSOR & MAGNETIC TILTS ---
+            const cursor = document.getElementById('cursor');
 
-        // --- GSAP Cinematic Reveals ---
-        const reveals = gsap.utils.toArray('.gs-reveal');
-        reveals.forEach((elem) => {
-            gsap.fromTo(elem,
-                { y: 80, opacity: 0 },
-                {
-                    duration: 1.5,
-                    y: 0,
-                    opacity: 1,
-                    ease: "power4.out",
-                    scrollTrigger: {
-                        trigger: elem,
-                        start: "top 85%",
-                        toggleActions: "play none none reverse"
-                    }
-                }
-            );
-        });
+            let mouseX = window.innerWidth / 2;
+            let mouseY = window.innerHeight / 2;
 
-        // --- Simple 3D Card Parallax (Tilt) ---
-        const tilts = document.querySelectorAll('.handle-tilt');
-        tilts.forEach(card => {
-            card.addEventListener('mousemove', e => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                // Subtle tilt
-                const rotateX = ((y - centerY) / centerY) * -3;
-                const rotateY = ((x - centerX) / centerX) * 3;
-
-                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
             });
-            card.addEventListener('mouseleave', () => {
-                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
-            });
-        });
 
-        // --- Number Counter Animation ---
-        const counters = document.querySelectorAll('.counter');
-        counters.forEach(counter => {
-            gsap.to(counter, {
-                innerText: counter.getAttribute('data-target'),
-                duration: 2.5,
-                snap: { innerText: 1 },
-                ease: "power3.out",
-                scrollTrigger: {
-                    trigger: counter,
-                    start: "top 80%"
-                }
-            });
-        });
-
-        // --- Liquid CTA Particles Burst (Anime.js) ---
-        const btn = document.getElementById('cta-btn');
-        btn.addEventListener('mouseenter', (e) => {
-            const rect = btn.getBoundingClientRect();
-            // Burst of 20 particles
-            for (let i = 0; i < 20; i++) {
-                const particle = document.createElement('div');
-                particle.style.width = Math.random() * 6 + 2 + 'px';
-                particle.style.height = particle.style.width;
-                particle.style.background = Math.random() > 0.5 ? '#FF6B00' : '#FFB347';
-                particle.style.position = 'absolute';
-                particle.style.borderRadius = '50%';
-                particle.style.pointerEvents = 'none';
-                particle.style.zIndex = '9999'; // Above all
-
-                // Start exactly at the mouse pointer
-                particle.style.left = e.pageX + 'px';
-                particle.style.top = e.pageY + 'px';
-
-                document.body.appendChild(particle);
-
-                anime({
-                    targets: particle,
-                    translateX: anime.random(-150, 150),
-                    translateY: anime.random(-150, 150),
-                    opacity: [1, 0],
-                    scale: [0, 2],
-                    duration: anime.random(800, 1500),
-                    easing: 'easeOutExpo',
-                    complete: () => particle.remove()
-                });
-            }
-        });
-
-
-        /** ==============================
-         *  GLSL SHADER (Breathing Audio Waveform)
-         *  ============================== */
-        const canvasShader = document.getElementById('hero-shader');
-        const gl = canvasShader.getContext('webgl');
-
-        const vShaderStr = `
-            attribute vec2 position;
-            void main() { gl_Position = vec4(position, 0.0, 1.0); }
-        `;
-        const fShaderStr = `
-            precision highp float;
-            uniform vec2 u_resolution;
-            uniform float u_time;
-            
-            // Simplex-ish noise
-            float random (vec2 st) {
-                return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-            }
-            float noise (in vec2 st) {
-                vec2 i = floor(st);
-                vec2 f = fract(st);
-                float a = random(i);
-                float b = random(i + vec2(1.0, 0.0));
-                float c = random(i + vec2(0.0, 1.0));
-                float d = random(i + vec2(1.0, 1.0));
-                vec2 u = f*f*(3.0-2.0*f);
-                return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-            }
-
-            void main() {
-                vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-                uv.x *= u_resolution.x / u_resolution.y;
-                
-                vec3 col = vec3(0.04, 0.04, 0.04); // Deep black/gray abyss
-                
-                // Draw 3 pulsing sine waves
-                for(float i = 0.0; i < 3.0; i++) {
-                    uv.x += noise(uv * 2.0 + u_time * 0.1) * 0.05;
-                    float wave = sin(uv.x * (5.0 + i * 2.0) - u_time * (1.0 + i * 0.5)) * 0.15;
-                    // Pulse breathing
-                    wave *= (sin(u_time * 0.5 + i) * 0.5 + 1.0);
-                    
-                    float thickness = 0.005 / abs(uv.y - 0.5 - wave);
-                    thickness = smoothstep(0.0, 1.0, thickness);
-
-                    // Fade out on edges
-                    thickness *= smoothstep(0.0, 0.5, uv.x) * smoothstep(uv.x, uv.x + 0.5, u_resolution.x/u_resolution.y);
-                    
-                    vec3 waveCol = vec3(1.0, 0.42, 0.0); // Orange
-                    col += waveCol * thickness * (0.8 - i * 0.2);
-                }
-                
-                // Add dither / noise grain globally
-                float dither = (random(uv * 1000.0) - 0.5) * 0.08;
-                col += dither;
-
-                // Heavy vignette
-                float dist = distance(gl_FragCoord.xy / u_resolution.xy, vec2(0.5));
-                col *= smoothstep(1.0, 0.2, dist * 1.5);
-
-                gl_FragColor = vec4(col, 1.0);
-            }
-        `;
-
-        const compileShader = (type, source) => {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            return shader;
-        };
-
-        const program = gl.createProgram();
-        gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vShaderStr));
-        gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fShaderStr));
-        gl.linkProgram(program);
-        gl.useProgram(program);
-
-        const positionData = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
-        const buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, positionData, gl.STATIC_DRAW);
-        const positionLoc = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(positionLoc);
-        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-
-        const uRes = gl.getUniformLocation(program, "u_resolution");
-        const uTime = gl.getUniformLocation(program, "u_time");
-
-        const resizeShader = () => {
-            canvasShader.width = window.innerWidth;
-            canvasShader.height = window.innerHeight;
-            gl.viewport(0, 0, canvasShader.width, canvasShader.height);
-        };
-        window.addEventListener('resize', resizeShader);
-        resizeShader();
-
-        let startTime = Date.now();
-        const renderShader = () => {
-            gl.uniform2f(uRes, canvasShader.width, canvasShader.height);
-            gl.uniform1f(uTime, (Date.now() - startTime) / 1000);
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-            requestAnimationFrame(renderShader);
-        }
-        renderShader();
-
-        /** ==============================
-         *  THREE.JS HERO ORB
-         *  ============================== */
-        const orbContainer = document.getElementById('hero-orb');
-        const sceneOrb = new THREE.Scene();
-        // Camera positioned to place orb on the right side
-        const cameraOrb = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const rendererOrb = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-
-        rendererOrb.setSize(window.innerWidth, window.innerHeight);
-        rendererOrb.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        orbContainer.appendChild(rendererOrb.domElement);
-
-        // Orb Geometry
-        const geoOrb = new THREE.IcosahedronGeometry(2, 3);
-        const matOrb = new THREE.MeshBasicMaterial({
-            color: 0xFF6B00,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.15,
-        });
-        const meshOrb = new THREE.Mesh(geoOrb, matOrb);
-        // Position on the right side
-        const getOrbX = () => window.innerWidth > 768 ? 4 : 0;
-        meshOrb.position.set(getOrbX(), 0, -8);
-        sceneOrb.add(meshOrb);
-
-        // Inner solid core
-        const coreGeoOrb = new THREE.SphereGeometry(1.2, 32, 32);
-        const coreMatOrb = new THREE.MeshBasicMaterial({
-            color: 0x0A0A0A,
-            transparent: true,
-            opacity: 0.95
-        });
-        const coreMeshOrb = new THREE.Mesh(coreGeoOrb, coreMatOrb);
-        coreMeshOrb.position.copy(meshOrb.position);
-        sceneOrb.add(coreMeshOrb);
-
-        // Ambient glow points
-        const partsGeo = new THREE.BufferGeometry();
-        const partsCount = 200;
-        const posArray = new Float32Array(partsCount * 3);
-        for (let i = 0; i < partsCount; i++) {
-            const r = 2.0 + Math.random() * 2.0;
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            posArray[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-            posArray[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-            posArray[i * 3 + 2] = r * Math.cos(phi);
-        }
-        partsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const partsMat = new THREE.PointsMaterial({
-            size: 0.03,
-            color: 0xFFB347,
-            transparent: true,
-            opacity: 0.8
-        });
-        const partsMesh = new THREE.Points(partsGeo, partsMat);
-        partsMesh.position.copy(meshOrb.position);
-        sceneOrb.add(partsMesh);
-
-        let mouseX = 0;
-        let mouseY = 0;
-        document.addEventListener('mousemove', (e) => {
-            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-            mouseY = -(e.clientY / window.innerHeight - 0.5) * 2;
-        });
-
-        const animateOrb = () => {
-            requestAnimationFrame(animateOrb);
-            meshOrb.rotation.y += 0.002;
-            meshOrb.rotation.x += 0.001;
-            partsMesh.rotation.y -= 0.001;
-            partsMesh.rotation.z += 0.001;
-
-            // Mouse parallax subtle wobble
-            const targetX = getOrbX() + mouseX * 0.5;
-            const targetY = mouseY * 0.5;
-
-            meshOrb.position.x += (targetX - meshOrb.position.x) * 0.05;
-            meshOrb.position.y += (targetY - meshOrb.position.y) * 0.05;
-
-            coreMeshOrb.position.copy(meshOrb.position);
-            partsMesh.position.copy(meshOrb.position);
-
-            rendererOrb.render(sceneOrb, cameraOrb);
-        };
-        animateOrb();
-
-        /** ==============================
-         *  THREE.JS ARCHITECTURE DIAGRAM
-         *  ============================== */
-        const diagContainer = document.getElementById('diagram-canvas');
-        if (diagContainer) {
-            const sceneDiag = new THREE.Scene();
-            const cameraDiag = new THREE.PerspectiveCamera(45, diagContainer.clientWidth / diagContainer.clientHeight, 0.1, 100);
-            const rendererDiag = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-
-            rendererDiag.setSize(diagContainer.clientWidth, diagContainer.clientHeight);
-            rendererDiag.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            diagContainer.appendChild(rendererDiag.domElement);
-            cameraDiag.position.z = 12;
-            cameraDiag.position.y = 2; // Look down slightly
-            cameraDiag.lookAt(0, 0, 0);
-
-            // Three Nodes
-            const nodeMat = new THREE.MeshBasicMaterial({ color: 0xFF6B00, wireframe: true, transparent: true, opacity: 0.8 });
-
-            // 1. Voice
-            const geo1 = new THREE.IcosahedronGeometry(0.8, 1);
-            const node1 = new THREE.Mesh(geo1, nodeMat);
-            node1.position.set(-5, 0, 0);
-            sceneDiag.add(node1);
-
-            // 2. Planning (Cube)
-            const geo2 = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-            const node2Mat = new THREE.MeshBasicMaterial({ color: 0xFFB347, wireframe: true, transparent: true, opacity: 0.5 });
-            const node2 = new THREE.Mesh(geo2, node2Mat);
-            node2.position.set(0, 0.5, 0); // slightly elevated
-
-            const core2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ color: 0xFF6B00 }));
-            node2.add(core2);
-            sceneDiag.add(node2);
-
-            // 3. macOS Native
-            const geo3 = new THREE.OctahedronGeometry(0.8, 0);
-            const node3 = new THREE.Mesh(geo3, nodeMat);
-            node3.position.set(5, 0, 0);
-            sceneDiag.add(node3);
-
-            // Connecting curved lines
-            const curve1 = new THREE.QuadraticBezierCurve3(
-                node1.position,
-                new THREE.Vector3(-2.5, 2, 0),
-                node2.position
-            );
-            const curve2 = new THREE.QuadraticBezierCurve3(
-                node2.position,
-                new THREE.Vector3(2.5, -1, 0),
-                node3.position
-            );
-
-            const points1 = curve1.getPoints(50);
-            const points2 = curve2.getPoints(50);
-
-            const lineMat = new THREE.LineBasicMaterial({ color: 0xFF6B00, transparent: true, opacity: 0.3 });
-
-            const line1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points1), lineMat);
-            const line2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points2), lineMat);
-
-            sceneDiag.add(line1);
-            sceneDiag.add(line2);
-
-            // Moving Particles on lines
-            const pGeo = new THREE.SphereGeometry(0.1, 8, 8);
-            const pMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-
-            const p1 = new THREE.Mesh(pGeo, pMat);
-            const p2 = new THREE.Mesh(pGeo, pMat);
-            sceneDiag.add(p1);
-            sceneDiag.add(p2);
-
-            let diagTime = 0;
-            const animateDiag = () => {
-                requestAnimationFrame(animateDiag);
-
-                node1.rotation.y += 0.01;
-                node1.rotation.x += 0.005;
-
-                node2.rotation.x += 0.01;
-                node2.rotation.y += 0.01;
-                core2.rotation.y -= 0.02;
-
-                node3.rotation.z -= 0.01;
-                node3.rotation.y += 0.01;
-
-                diagTime += 0.005;
-                const t1 = (diagTime % 1); // 0 to 1
-                const t2 = ((diagTime + 0.5) % 1); // Offset particle
-
-                // particle 1 moves from voice -> sidecar
-                curve1.getPoint(t1, p1.position);
-                // particle 2 moves from sidecar -> mac
-                curve2.getPoint(t2, p2.position);
-
-                rendererDiag.render(sceneDiag, cameraDiag);
+            // Smooth 60fps cursor following using requestAnimationFrame
+            let cursorX = mouseX;
+            let cursorY = mouseY;
+            const animateCursor = () => {
+                cursorX += (mouseX - cursorX) * 0.2;
+                cursorY += (mouseY - cursorY) * 0.2;
+                cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
+                requestAnimationFrame(animateCursor);
             };
+            animateCursor();
 
-            // Use Intersection Observer so it only renders when visible to save CPU
-            let observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        animateDiag();
-                    }
+            const hoverElements = document.querySelectorAll('.hover-target, button, a');
+            hoverElements.forEach(el => {
+                el.addEventListener('mouseenter', () => cursor.classList.add('cursor-active'));
+                el.addEventListener('mouseleave', () => cursor.classList.remove('cursor-active'));
+            });
+
+            // Card Tilt Parallax effect
+            const tilts = document.querySelectorAll('.bento-card');
+            tilts.forEach(card => {
+                card.addEventListener('mousemove', e => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+
+                    const rotateX = ((y - centerY) / centerY) * -5;
+                    const rotateY = ((x - centerX) / centerX) * 5;
+
+                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px) scale3d(1.02, 1.02, 1.02)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px) scale3d(1, 1, 1)`;
                 });
             });
-            observer.observe(diagContainer);
-        }
 
-        window.addEventListener('resize', () => {
-            // Orb
-            cameraOrb.aspect = window.innerWidth / window.innerHeight;
-            cameraOrb.updateProjectionMatrix();
-            rendererOrb.setSize(window.innerWidth, window.innerHeight);
 
-            // Diag
-            if (diagContainer) {
-                const cameraDiag = sceneDiag.cameras ? sceneDiag.cameras[0] : null;
-                const rendererDiag = diagContainer.children[0]; // canvas
-                // Basic resize handling
+            // --- 1. THREE.JS SETUP ---
+            const container = document.getElementById('webgl-container');
+
+            // Renderers
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            // Crucial: allow background scene to render first without clearing
+            renderer.autoClear = false;
+            container.appendChild(renderer.domElement);
+
+            // Global Uniforms
+            const time = { value: 0 };
+            const mouseVec = { value: new THREE.Vector2(0, 0) };
+
+            // Mouse tracking for Three.js
+            window.addEventListener('mousemove', (e) => {
+                mouseVec.value.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseVec.value.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            });
+
+            // --- 2. BACKGROUND SCENE (Shaders) ---
+            const bgScene = new THREE.Scene();
+            const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+            const bgMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: time,
+                    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float uTime;
+                    uniform vec2 uResolution;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        vec2 uv = gl_FragCoord.xy / uResolution.xy;
+                        vec3 color = vec3(0.04, 0.04, 0.04); // #0A0A0A
+                        
+                        // Audio Waveform logic
+                        for(float i = 0.0; i < 3.0; i++) {
+                            float speed = uTime * (0.8 + i * 0.2);
+                            float amplitude = 0.05 + i * 0.02;
+                            float frequency = 3.0 + i * 2.0;
+                            
+                            // Combine sine waves for organic fluid look
+                            float y = uv.y + sin(uv.x * frequency + speed) * amplitude * sin(uv.x * (frequency * 2.0) - speed * 0.5);
+                            
+                            // Distance to line
+                            float dist = abs(0.5 - y);
+                            
+                            // Glow calculation
+                            float glow = 0.002 / (dist + 0.001);
+                            
+                            // Mix colors: Orange and Amber
+                            vec3 waveColor = mix(vec3(1.0, 0.42, 0.0), vec3(1.0, 0.7, 0.28), i/2.0);
+                            
+                            color += waveColor * glow * (0.5 - i*0.1);
+                        }
+                        
+                        // Add subtle vignette
+                        float vignette = length(uv - 0.5);
+                        color -= vignette * 0.3;
+                        
+                        gl_FragColor = vec4(color, 1.0);
+                    }
+                `,
+                depthWrite: false,
+                depthTest: false
+            });
+            const bgQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMaterial);
+            bgScene.add(bgQuad);
+
+            // --- 3. MAIN 3D SCENE (Objects) ---
+            const mainScene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 10;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            mainScene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0xFF6B00, 2, 50);
+            pointLight.position.set(5, 5, 5);
+            mainScene.add(pointLight);
+
+            // A) Hero Orb
+            const orbGeo = new THREE.IcosahedronGeometry(2, 64);
+            const orbMat = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: time,
+                    uMouse: mouseVec,
+                    uColor1: { value: new THREE.Color(0xFF6B00) }, // Orange
+                    uColor2: { value: new THREE.Color(0xFFB347) }  // Amber
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    varying vec3 vNormal;
+                    varying vec3 vPosition;
+                    uniform float uTime;
+                    uniform vec2 uMouse;
+
+                    // Pseudo-random noise
+                    vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                    vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                    vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+                    vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+                    float snoise(vec3 v) {
+                        const vec2  C = vec2(1.0/6.0, 1.0/3.0);
+                        const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+                        vec3 i  = floor(v + dot(v, C.yyy) );
+                        vec3 x0 = v - i + dot(i, C.xxx) ;
+                        vec3 g = step(x0.yzx, x0.xyz);
+                        vec3 l = 1.0 - g;
+                        vec3 i1 = min( g.xyz, l.zxy );
+                        vec3 i2 = max( g.xyz, l.zxy );
+                        vec3 x1 = x0 - i1 + C.xxx;
+                        vec3 x2 = x0 - i2 + C.yyy;
+                        vec3 x3 = x0 - D.yyy;
+                        i = mod289(i); 
+                        vec4 p = permute( permute( permute( 
+                                    i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                                  + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) 
+                                  + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+                        float n_ = 0.142857142857;
+                        vec3  ns = n_ * D.wyz - D.xzx;
+                        vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                        vec4 x_ = floor(j * ns.z);
+                        vec4 y_ = floor(j - 7.0 * x_ );
+                        vec4 x = x_ *ns.x + ns.yyyy;
+                        vec4 y = y_ *ns.x + ns.yyyy;
+                        vec4 h = 1.0 - abs(x) - abs(y);
+                        vec4 b0 = vec4( x.xy, y.xy );
+                        vec4 b1 = vec4( x.zw, y.zw );
+                        vec4 s0 = floor(b0)*2.0 + 1.0;
+                        vec4 s1 = floor(b1)*2.0 + 1.0;
+                        vec4 sh = -step(h, vec4(0.0));
+                        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+                        vec3 p0 = vec3(a0.xy,h.x);
+                        vec3 p1 = vec3(a0.zw,h.y);
+                        vec3 p2 = vec3(a1.xy,h.z);
+                        vec3 p3 = vec3(a1.zw,h.w);
+                        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                        p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+                        vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                        m = m * m;
+                        return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+                    }
+
+                    void main() {
+                        vUv = uv;
+                        vNormal = normal;
+                        
+                        // Wobble
+                        float noise = snoise(vec3(position.x * 1.5 + uTime * 0.5, position.y * 1.5, position.z * 1.5 + uTime));
+                        vec3 newPosition = position + normal * noise * 0.3;
+                        
+                        // Mouse parallax subtly moving the vertices
+                        newPosition.x += uMouse.x * 0.5;
+                        newPosition.y += uMouse.y * 0.5;
+                        
+                        vPosition = newPosition;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vPosition;
+                    uniform vec3 uColor1;
+                    uniform vec3 uColor2;
+                    uniform float uTime;
+                    
+                    void main() {
+                        vec3 viewDirection = normalize(cameraPosition - vPosition);
+                        float fresnel = dot(viewDirection, normalize(vNormal));
+                        fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
+                        fresnel = pow(fresnel, 2.5);
+                        
+                        // Base core dark, glowing edges
+                        vec3 color = mix(vec3(0.0), mix(uColor1, uColor2, sin(uTime)*0.5+0.5), fresnel * 1.5);
+                        
+                        // Output
+                        gl_FragColor = vec4(color, fresnel * 0.9);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const orb = new THREE.Mesh(orbGeo, orbMat);
+            // Position it to the right for desktop, center for mobile
+            orb.position.set(window.innerWidth > 768 ? 3 : 0, 0, 0);
+            mainScene.add(orb);
+
+            // B) Diagram Nodes (How it works section)
+            // Positioned lower down the Y axis, camera will scroll to them
+            const diagramGroup = new THREE.Group();
+            diagramGroup.position.set(0, -20, 0); // Spaced out
+            mainScene.add(diagramGroup);
+
+            // Node geometries
+            const nodeMat = new THREE.MeshBasicMaterial({ color: 0xFF6B00, wireframe: true, transparent: true, opacity: 0.5 });
+
+            // Voice Node (Icosahedron)
+            const n1Geo = new THREE.IcosahedronGeometry(0.8, 1);
+            const node1 = new THREE.Mesh(n1Geo, nodeMat);
+            node1.position.set(-5, 0, 0);
+            diagramGroup.add(node1);
+
+            // Plan Node (Torus)
+            const n2Geo = new THREE.TorusGeometry(0.6, 0.3, 16, 32);
+            const node2 = new THREE.Mesh(n2Geo, nodeMat);
+            node2.position.set(0, 1, -2);
+            diagramGroup.add(node2);
+
+            // Action Node (Box)
+            const n3Geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            const node3 = new THREE.Mesh(n3Geo, nodeMat);
+            node3.position.set(5, -1, 0);
+            diagramGroup.add(node3);
+
+            // Connecting Curves
+            const curve1 = new THREE.QuadraticBezierCurve3(node1.position, new THREE.Vector3(-2.5, 2, -1), node2.position);
+            const curve2 = new THREE.QuadraticBezierCurve3(node2.position, new THREE.Vector3(2.5, 0, -1), node3.position);
+
+            // Line material
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xFFB347, transparent: true, opacity: 0.3 });
+            const points1 = curve1.getPoints(50);
+            const line1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points1), lineMat);
+            diagramGroup.add(line1);
+
+            const points2 = curve2.getPoints(50);
+            const line2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points2), lineMat);
+            diagramGroup.add(line2);
+
+            // Moving Particle along curve
+            const particleGeo = new THREE.SphereGeometry(0.15, 16, 16);
+            const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const dataParticle = new THREE.Mesh(particleGeo, particleMat);
+            diagramGroup.add(dataParticle);
+
+            // --- 4. RESIZE HANDLER ---
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                bgMaterial.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+                // Adjust orb position on resize
+                orb.position.set(window.innerWidth > 768 ? 3 : 0, 0, 0);
+            });
+
+            // --- 5. RENDER LOOP ---
+            const clock = new THREE.Clock();
+            function render() {
+                const t = clock.getElapsedTime();
+                time.value = t;
+
+                // Rotate Orb
+                orb.rotation.y = t * 0.1;
+                orb.rotation.z = t * 0.05;
+
+                // Rotate Diagram nodes
+                node1.rotation.y = t * 0.5;
+                node2.rotation.x = t * 0.5;
+                node2.rotation.y = t * 0.3;
+                node3.rotation.y = t * 0.5;
+                node3.rotation.z = t * 0.2;
+
+                // Animate Particle along curves
+                const cycle = (t * 0.5) % 2.0; // 0 to 2
+                if (cycle < 1.0) {
+                    dataParticle.position.copy(curve1.getPointAt(cycle));
+                } else {
+                    dataParticle.position.copy(curve2.getPointAt(cycle - 1.0));
+                }
+
+                // Render Background first (depthWrite is false), then main scene
+                renderer.clear();
+                renderer.render(bgScene, bgCamera);
+                renderer.clearDepth();
+                renderer.render(mainScene, camera);
+
+                requestAnimationFrame(render);
             }
-        });
+            render();
 
+            // --- 6. GSAP SCROLL & ANIMATIONS ---
+            gsap.registerPlugin(ScrollTrigger);
+
+            // A) Move Camera in 3D Space based on Scroll
+            const tl = gsap.timeline({
+                scrollTrigger: {
+                    trigger: "main",
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1
+                }
+            });
+
+            // Scroll to Diagram section: Camera moves down
+            tl.to(camera.position, {
+                y: -20,
+                z: 8,
+                ease: "none"
+            }, 0);
+
+            // Orb fades/moves out slightly as we scroll down
+            tl.to(orb.position, {
+                y: 10,
+                ease: "none"
+            }, 0);
+
+            // B) DOM Element Reveals
+            gsap.utils.toArray('.reveal').forEach(elem => {
+                gsap.fromTo(elem,
+                    { autoAlpha: 0, y: 40 },
+                    {
+                        autoAlpha: 1,
+                        y: 0,
+                        duration: 1.2,
+                        ease: "power3.out",
+                        scrollTrigger: {
+                            trigger: elem,
+                            start: "top 85%",
+                        }
+                    }
+                );
+            });
+
+            // C) Anime.js Number Counters (Bento Grid)
+            ScrollTrigger.create({
+                trigger: "#bento",
+                start: "top 70%",
+                onEnter: () => {
+                    anime({
+                        targets: '.count-ms',
+                        innerHTML: [0, 12],
+                        round: 1,
+                        duration: 2500,
+                        easing: 'easeOutExpo'
+                    });
+                    anime({
+                        targets: '.count-apps',
+                        innerHTML: [0, 85],
+                        round: 1,
+                        duration: 3000,
+                        easing: 'easeOutExpo'
+                    });
+                    anime({
+                        targets: '.count-context',
+                        innerHTML: [0, 100],
+                        round: 1,
+                        duration: 2000,
+                        easing: 'easeOutExpo'
+                    });
+                },
+                once: true
+            });
+
+            // --- 7. MAGNETIC BUTTON & PARTICLE BURST ---
+            const magWrap = document.getElementById('cta-button-wrap');
+            const magBtn = document.getElementById('cta-button');
+
+            magWrap.addEventListener('mousemove', (e) => {
+                const rect = magWrap.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+
+                // Move button slightly towards mouse
+                gsap.to(magBtn, {
+                    x: x * 0.4,
+                    y: y * 0.4,
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            });
+
+            magWrap.addEventListener('mouseleave', () => {
+                // Snap back
+                gsap.to(magBtn, {
+                    x: 0,
+                    y: 0,
+                    duration: 0.8,
+                    ease: "elastic.out(1, 0.3)"
+                });
+            });
+
+            // Burst Effect on Hover
+            magWrap.addEventListener('mouseenter', () => {
+                const rect = magBtn.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                for (let i = 0; i < 20; i++) {
+                    const p = document.createElement('div');
+                    p.classList.add('fixed', 'w-3', 'h-3', 'bg-orange', 'rounded-full', 'pointer-events-none', 'z-50');
+                    p.style.left = centerX + 'px';
+                    p.style.top = centerY + 'px';
+                    // Use mix blend mode for the particles too
+                    p.style.mixBlendMode = 'screen';
+                    document.body.appendChild(p);
+
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 60 + Math.random() * 80;
+
+                    anime({
+                        targets: p,
+                        translateX: Math.cos(angle) * radius,
+                        translateY: Math.sin(angle) * radius,
+                        scale: [1, 0],
+                        opacity: [1, 0],
+                        duration: 800 + Math.random() * 600,
+                        easing: 'easeOutExpo',
+                        complete: () => p.remove()
+                    });
+                }
+            });
+
+        }
     </script>
 </body>
 
