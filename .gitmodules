@@ -1,0 +1,3 @@
+[submodule "vendor/macos-use"]
+	path = vendor/macos-use
+	url = https://github.com/browser-use/macOS-use.git
