@@ -10,7 +10,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "OrangeApp",
-            path: "Sources/OrangeApp"
+            path: "Sources/OrangeApp",
+            exclude: ["Resources/AppIcon.icns"]
         ),
         .testTarget(
             name: "OrangeAppTests",

@@ -38,6 +38,14 @@ chmod +x "$APP_DIR/Contents/MacOS/$APP_EXECUTABLE"
 rm -rf "$APP_DIR/Contents/Resources/sidecar"
 cp -R "$SIDECAR_DIR" "$APP_DIR/Contents/Resources/sidecar"
 
+ICON_PATH="$ROOT_DIR/apps/desktop/Sources/OrangeApp/Resources/AppIcon.icns"
+if [[ -f "$ICON_PATH" ]]; then
+  echo "[build] Copying app icon..."
+  cp "$ICON_PATH" "$APP_DIR/Contents/Resources/AppIcon.icns"
+else
+  echo "[build] Warning: AppIcon.icns not found. Run scripts/generate_icon.sh first."
+fi
+
 cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -55,6 +63,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
   <string>${VERSION}</string>
   <key>CFBundleExecutable</key>
   <string>${APP_EXECUTABLE}</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>NSMicrophoneUsageDescription</key>
@@ -84,7 +94,18 @@ fi
 
 echo "[build] Creating DMG..."
 rm -f "$DMG_PATH"
-hdiutil create -volname "$APP_NAME" -srcfolder "$APP_DIR" -ov -format UDZO "$DMG_PATH"
+DMG_RW="$DIST_DIR/${APP_NAME}-rw.dmg"
+hdiutil create -volname "$APP_NAME" -srcfolder "$APP_DIR" -ov -format UDRW "$DMG_RW"
+
+echo "[build] Styling DMG volume icon..."
+MOUNT_DIR=$(hdiutil attach "$DMG_RW" -readwrite -noverify -noautoopen | grep "/Volumes/" | awk -F'\t' '{print $NF}')
+if [[ -f "$APP_DIR/Contents/Resources/AppIcon.icns" ]]; then
+  cp "$APP_DIR/Contents/Resources/AppIcon.icns" "$MOUNT_DIR/.VolumeIcon.icns"
+  SetFile -a C "$MOUNT_DIR" 2>/dev/null || true
+fi
+hdiutil detach "$MOUNT_DIR" -quiet
+hdiutil convert "$DMG_RW" -format UDZO -o "$DMG_PATH"
+rm -f "$DMG_RW"
 
 if [[ -n "${APPLE_DEVELOPER_ID_APPLICATION:-}" ]]; then
   echo "[build] Code signing DMG..."

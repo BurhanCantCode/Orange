@@ -21,6 +21,7 @@ final class AppState: ObservableObject {
     @Published var onboardingGate: OnboardingGate = .needsAPIKey
     @Published var sidecarHealthy: Bool = false
     @Published var diagnosticsText: String = ""
+    @Published var overlayExpanded: Bool = false
 
     var sessionId: String = UUID().uuidString
 
