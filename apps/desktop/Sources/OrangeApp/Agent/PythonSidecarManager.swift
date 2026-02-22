@@ -18,6 +18,10 @@ final class PythonSidecarManager {
 
     func restart(apiKey: String?) {
         launchAPIKey = apiKey
+        // If a startup health-check task is in flight, clear it so restart can proceed.
+        startupTask?.cancel()
+        startupTask = nil
+        isStarting = false
         stop()
         startIfNeeded(apiKey: apiKey)
     }
@@ -74,6 +78,7 @@ final class PythonSidecarManager {
 
     func stop() {
         isStopping = true
+        isStarting = false
         startupTask?.cancel()
         startupTask = nil
         process?.terminate()

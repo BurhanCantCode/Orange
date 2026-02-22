@@ -41,7 +41,7 @@ swift run
 
 1. Enter your Anthropic API key in the app prompt.
 2. Grant Accessibility, Microphone, and Screen Recording permissions.
-3. Use the hotkey (Cmd+Shift+O) to start speaking commands.
+3. Use the hotkey (`F8`) to start speaking commands.
 
 Notes:
 - In dev mode, the app can launch the sidecar via local Python fallback.

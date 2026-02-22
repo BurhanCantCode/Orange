@@ -7,12 +7,14 @@ struct OverlayView: View {
     let onConfirm: () -> Void
     let onCancel: () -> Void
 
-    @State private var isHovered = false
+    @State private var isPointerInside = false
+    @State private var hoverExpanded = false
+    @State private var hoverTask: Task<Void, Never>?
     @State private var collapseTask: Task<Void, Never>?
     @State private var pillBounce = false
 
     private var isExpanded: Bool {
-        appState.overlayExpanded || isHovered
+        appState.overlayExpanded || hoverExpanded
     }
 
     private var isActive: Bool {
@@ -55,11 +57,22 @@ struct OverlayView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isExpanded)
         .animation(.spring(response: 0.2, dampingFraction: 0.5), value: pillBounce)
         .onHover { hovering in
-            isHovered = hovering
+            isPointerInside = hovering
+            hoverTask?.cancel()
             if hovering {
-                OverlayWindow.shared.setMode(.expanded)
+                hoverTask = Task {
+                    try? await Task.sleep(nanoseconds: 120_000_000)
+                    guard !Task.isCancelled, isPointerInside else { return }
+                    hoverExpanded = true
+                    OverlayWindow.shared.setMode(.expanded)
+                }
             } else if !appState.overlayExpanded {
-                OverlayWindow.shared.setMode(.collapsed)
+                hoverTask = Task {
+                    try? await Task.sleep(nanoseconds: 220_000_000)
+                    guard !Task.isCancelled, !isPointerInside else { return }
+                    hoverExpanded = false
+                    OverlayWindow.shared.setMode(.collapsed)
+                }
             }
         }
         .onChange(of: appState.state) { _, newState in
@@ -86,11 +99,16 @@ struct OverlayView: View {
                     try? await Task.sleep(nanoseconds: 2_500_000_000)
                     guard !Task.isCancelled else { return }
                     appState.overlayExpanded = false
-                    if !isHovered {
+                    if !isPointerInside {
+                        hoverExpanded = false
                         OverlayWindow.shared.setMode(.collapsed)
                     }
                 }
             }
+        }
+        .onDisappear {
+            hoverTask?.cancel()
+            collapseTask?.cancel()
         }
     }
 
@@ -232,7 +250,7 @@ struct OverlayView: View {
 
                 Spacer()
 
-                Text("\u{2318}\u{21E7}O")
+                Text("F8")
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.25))
             }

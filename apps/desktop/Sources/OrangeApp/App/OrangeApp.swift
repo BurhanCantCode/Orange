@@ -8,6 +8,7 @@ struct OrangeApp: App {
     @State private var showOnboarding = false
     @State private var showAPIKeySetup = false
     @State private var showDiagnostics = false
+    @State private var attemptedProviderKeyResync = false
     @State private var permissionStatus = PermissionsManager.Status(
         accessibility: false,
         microphone: false,
@@ -43,13 +44,9 @@ struct OrangeApp: App {
             Color.clear
                 .frame(width: 1, height: 1)
                 .onAppear {
-                    // Hide the scaffold window while keeping it available for .sheet() modals
+                    // Hide scaffold only when no modal is being presented.
                     DispatchQueue.main.async {
-                        for window in NSApplication.shared.windows {
-                            if window.title == "Orange" && !(window is NSPanel) {
-                                window.orderOut(nil)
-                            }
-                        }
+                        hideScaffoldWindowIfNoModal()
                     }
 
                     refreshPermissionStatus()
@@ -70,6 +67,31 @@ struct OrangeApp: App {
                 .onDisappear {
                     OverlayWindow.shared.hide()
                     sidecarManager.stop()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    refreshPermissionStatus()
+                    refreshOnboardingGate()
+                }
+                .onChange(of: showAPIKeySetup) { _, isPresented in
+                    if isPresented {
+                        presentScaffoldWindowForModal()
+                    } else {
+                        hideScaffoldWindowIfNoModal()
+                    }
+                }
+                .onChange(of: showOnboarding) { _, isPresented in
+                    if isPresented {
+                        presentScaffoldWindowForModal()
+                    } else {
+                        hideScaffoldWindowIfNoModal()
+                    }
+                }
+                .onChange(of: showDiagnostics) { _, isPresented in
+                    if isPresented {
+                        presentScaffoldWindowForModal()
+                    } else {
+                        hideScaffoldWindowIfNoModal()
+                    }
                 }
                 .onChange(of: appState.onboardingGate) { _, newValue in
                     if newValue == .needsAPIKey {
@@ -94,6 +116,7 @@ struct OrangeApp: App {
                         onRequestAccessibility: {
                             _ = permissionsManager.promptAccessibilityPermission()
                             permissionsManager.openSettingsAccessibility()
+                            startPermissionRefreshPolling()
                         },
                         onRequestMicrophone: {
                             Task {
@@ -108,6 +131,7 @@ struct OrangeApp: App {
                         onRequestScreenRecording: {
                             _ = permissionsManager.requestScreenRecordingPermission()
                             permissionsManager.openSettingsScreenRecording()
+                            startPermissionRefreshPolling()
                         },
                         onRefresh: {
                             refreshPermissionStatus()
@@ -213,6 +237,22 @@ struct OrangeApp: App {
         showOnboarding = false
     }
 
+    private func startPermissionRefreshPolling() {
+        Task {
+            for _ in 0..<45 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                let status = permissionsManager.currentStatus()
+                await MainActor.run {
+                    permissionStatus = status
+                    refreshOnboardingGate()
+                }
+                if status.allGranted {
+                    break
+                }
+            }
+        }
+    }
+
     private func validateAPIKey(_ key: String) async -> ProviderValidateResponse {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -232,6 +272,14 @@ struct OrangeApp: App {
                 )
             )
         } catch {
+            if let urlError = error as? URLError, urlError.code == .timedOut {
+                return ProviderValidateResponse(
+                    provider: "anthropic",
+                    valid: false,
+                    reason: "Validation timed out. You can still save the key and try again.",
+                    accountHint: nil
+                )
+            }
             return ProviderValidateResponse(
                 provider: "anthropic",
                 valid: false,
@@ -253,6 +301,7 @@ struct OrangeApp: App {
 
         Task {
             try? await Task.sleep(nanoseconds: 450_000_000)
+            await ensureProviderKeyConfigured(expectedKey: trimmed)
             await refreshProviderHealth()
             refreshPermissionStatus()
             refreshOnboardingGate()
@@ -262,6 +311,7 @@ struct OrangeApp: App {
     private func resetAPIKey() {
         credentialManager.resetAnthropicAPIKey()
         sidecarManager.restart(apiKey: nil)
+        attemptedProviderKeyResync = false
         appState.sidecarHealthy = false
         appState.statusText = "API key removed"
         refreshOnboardingGate()
@@ -270,6 +320,17 @@ struct OrangeApp: App {
     private func refreshProviderHealth() async {
         do {
             let status = try await plannerClient.providerStatus()
+            if !status.keyConfigured,
+               let savedKey = credentialManager.loadAnthropicAPIKey(),
+               !savedKey.isEmpty,
+               !attemptedProviderKeyResync
+            {
+                attemptedProviderKeyResync = true
+                sidecarManager.restart(apiKey: savedKey)
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                await refreshProviderHealth()
+                return
+            }
             await MainActor.run {
                 appState.sidecarHealthy = status.health
             }
@@ -277,6 +338,25 @@ struct OrangeApp: App {
             await MainActor.run {
                 appState.sidecarHealthy = false
             }
+        }
+    }
+
+    private func ensureProviderKeyConfigured(expectedKey: String) async {
+        for _ in 0..<3 {
+            do {
+                let status = try await plannerClient.providerStatus()
+                if status.keyConfigured {
+                    attemptedProviderKeyResync = false
+                    return
+                }
+            } catch {
+                // Fall through to restart-and-retry.
+            }
+            sidecarManager.restart(apiKey: expectedKey)
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        await MainActor.run {
+            appState.statusText = "Key saved, but sidecar did not pick it up yet"
         }
     }
 
@@ -346,5 +426,31 @@ struct OrangeApp: App {
                 sessionManager.cancel(state: appState)
             }
         )
+    }
+
+    @MainActor
+    private func scaffoldWindow() -> NSWindow? {
+        NSApplication.shared.windows.first { $0.title == "Orange" && !($0 is NSPanel) }
+    }
+
+    @MainActor
+    private func presentScaffoldWindowForModal() {
+        guard let window = scaffoldWindow() else { return }
+        if let screen = window.screen ?? NSScreen.main {
+            let width: CGFloat = 560
+            let height: CGFloat = 380
+            let x = screen.visibleFrame.midX - (width / 2)
+            let y = screen.visibleFrame.midY - (height / 2)
+            window.setFrame(NSRect(x: x, y: y, width: width, height: height), display: false)
+        }
+        window.alphaValue = 1
+        window.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    private func hideScaffoldWindowIfNoModal() {
+        guard !showAPIKeySetup, !showOnboarding, !showDiagnostics else { return }
+        scaffoldWindow()?.orderOut(nil)
     }
 }

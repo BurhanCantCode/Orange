@@ -23,7 +23,8 @@ final class PermissionsManager {
     }
 
     func checkAccessibility() -> Bool {
-        AXIsProcessTrusted()
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
     }
 
     func checkMicrophone() -> Bool {
@@ -36,7 +37,7 @@ final class PermissionsManager {
 
     @discardableResult
     func promptAccessibilityPermission() -> Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 

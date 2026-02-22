@@ -11,7 +11,8 @@ final class HotkeyManager {
     private var onRelease: (() -> Void)?
     private var isPressed = false
 
-    private let targetKeyCode: UInt16 = 31 // O
+    private let targetKeyCode: UInt16 = UInt16(kVK_F8)
+    private let targetModifiers: UInt32 = 0
     private let hotKeySignature: OSType = 0x4F524E47 // ORNG
 
     func register(
@@ -23,7 +24,7 @@ final class HotkeyManager {
         unregisterFallbackMonitors()
 
         if registerCarbonHotkey() {
-            Logger.info("Registered Carbon hotkey (cmd+shift+o)")
+            Logger.info("Registered Carbon hotkey (f8)")
             return
         }
 
@@ -58,8 +59,8 @@ final class HotkeyManager {
 
         let hotKeyID = EventHotKeyID(signature: hotKeySignature, id: 1)
         let registerStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_O),
-            UInt32(cmdKey | shiftKey),
+            UInt32(targetKeyCode),
+            targetModifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
@@ -121,7 +122,8 @@ final class HotkeyManager {
 
     private func matchesHotkey(_ event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        return event.keyCode == targetKeyCode && modifiers.contains([.command, .shift])
+        let onlyFunctionModifier = modifiers.subtracting([.function]).isEmpty
+        return event.keyCode == targetKeyCode && onlyFunctionModifier
     }
 
     private func unregisterCarbonHotkey() {

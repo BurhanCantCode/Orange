@@ -10,6 +10,14 @@ struct APIKeySetupView: View {
     @State private var validationIsValid = false
     @State private var isValidating = false
 
+    private var normalizedKey: String {
+        apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var canSave: Bool {
+        !normalizedKey.isEmpty && normalizedKey.hasPrefix("sk-ant-")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             // Orange accent line
@@ -65,11 +73,14 @@ struct APIKeySetupView: View {
                     .background(Capsule().fill(Color.white.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
-                .disabled(isValidating || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .opacity(isValidating || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                .disabled(isValidating || normalizedKey.isEmpty)
+                .opacity(isValidating || normalizedKey.isEmpty ? 0.5 : 1)
 
                 Button {
-                    onSave(apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
+                    onSave(normalizedKey)
+                    if !validationIsValid {
+                        validationMessage = "Saved without validation. Orange will verify connectivity in the background."
+                    }
                 } label: {
                     Text(existingKeyPresent ? "Update Key" : "Save Key")
                         .font(.subheadline.weight(.semibold))
@@ -79,8 +90,8 @@ struct APIKeySetupView: View {
                         .background(Capsule().fill(Color.orange))
                 }
                 .buttonStyle(.plain)
-                .disabled(!validationIsValid)
-                .opacity(!validationIsValid ? 0.5 : 1)
+                .disabled(!canSave)
+                .opacity(!canSave ? 0.5 : 1)
 
                 Spacer()
             }
@@ -103,7 +114,7 @@ struct APIKeySetupView: View {
     private func validate() async {
         isValidating = true
         validationIsValid = false
-        let result = await onValidate(apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
+        let result = await onValidate(normalizedKey)
         validationIsValid = result.valid
         if result.valid {
             validationMessage = result.accountHint ?? "Key validated successfully."

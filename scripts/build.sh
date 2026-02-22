@@ -104,7 +104,11 @@ if [[ -n "${APPLE_DEVELOPER_ID_APPLICATION:-}" ]]; then
     codesign --force --deep --options runtime --sign "$APPLE_DEVELOPER_ID_APPLICATION" "$APP_DIR"
   fi
 else
-  echo "[build] APPLE_DEVELOPER_ID_APPLICATION not set. Skipping code sign."
+  echo "[build] APPLE_DEVELOPER_ID_APPLICATION not set. Applying ad-hoc signing for local TCC stability."
+  if [[ -f "$APP_DIR/Contents/Resources/sidecar/sidecar_server" ]]; then
+    codesign --force --sign - "$APP_DIR/Contents/Resources/sidecar/sidecar_server"
+  fi
+  codesign --force --deep --sign - --identifier "ai.orange.desktop" "$APP_DIR"
 fi
 
 echo "[build] Creating DMG..."
